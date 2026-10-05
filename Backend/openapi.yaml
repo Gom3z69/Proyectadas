@@ -1,0 +1,1006 @@
+openapi: 3.0.3
+info:
+  title: PROYECTADAS API
+  version: 1.0.0
+  description: |
+    API de PROYECTADAS: feed de videos verticales, likes, comentarios, seguidores e
+    insignias por racha de publicación.
+
+    **Insignias** (de menor a mayor): Bronce (1 video), Plata (5), Oro (15), Diamante (30),
+    Rubí (50) y Gran Maestro (100). El progreso son los videos publicados en la racha actual.
+
+    **Racha:** hay que publicar al menos un video cada 24 h. Si no, la insignia se apaga y
+    hay 24 h para revivirla (botón *Revivir* o publicando), lo que consume una oportunidad.
+    Hay 3 oportunidades por mes y se reinician cada 1° de mes. Sin oportunidades, o si no se
+    revive a tiempo, la insignia se pierde y el progreso vuelve a 0.
+
+    Todas las rutas, salvo registro, login, niveles y salud, requieren
+    `Authorization: Bearer <token>`.
+servers:
+  - url: http://localhost:4000/api
+    description: Desarrollo local
+tags:
+  - name: Auth
+  - name: Usuarios
+  - name: Videos
+  - name: Comentarios
+  - name: Notificaciones
+  - name: Insignias
+
+security:
+  - bearerAuth: []
+
+paths:
+  /salud:
+    get:
+      tags: [Auth]
+      summary: Comprueba que la API está activa
+      security: []
+      responses:
+        '200':
+          description: API activa
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  estado: { type: string, example: ok }
+                  fecha: { type: string, format: date-time }
+
+  /auth/registro:
+    post:
+      tags: [Auth]
+      summary: Crea una cuenta
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nombre, username, email, password]
+              properties:
+                nombre: { type: string, example: Valeria Cinema }
+                username: { type: string, example: valeria_cinema, description: '3 a 24 caracteres: letras, números, punto o guion bajo' }
+                email: { type: string, format: email, example: valeria@correo.com }
+                password: { type: string, minLength: 6, example: secreto123 }
+      responses:
+        '201': { $ref: '#/components/responses/Sesion' }
+        '400': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Inicia sesión con usuario o correo
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [identificador, password]
+              properties:
+                identificador: { type: string, example: valeria_cinema }
+                password: { type: string, example: secreto123 }
+      responses:
+        '200': { $ref: '#/components/responses/Sesion' }
+        '401': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+
+  /auth/yo:
+    get:
+      tags: [Auth]
+      summary: Usuario de la sesión actual
+      responses:
+        '200':
+          description: Usuario autenticado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  usuario: { $ref: '#/components/schemas/UsuarioPrivado' }
+        '401': { $ref: '#/components/responses/Error' }
+
+  /usuarios/buscar:
+    get:
+      tags: [Usuarios]
+      summary: Busca usuarios por nombre o @usuario
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string }, example: vale }
+      responses:
+        '200':
+          description: Hasta 8 coincidencias
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  usuarios:
+                    type: array
+                    items: { $ref: '#/components/schemas/UsuarioPublico' }
+
+  /usuarios/yo:
+    patch:
+      tags: [Usuarios]
+      summary: Edita nombre, biografía y foto de perfil
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                nombre: { type: string }
+                bio: { type: string, maxLength: 160 }
+                avatar: { type: string, format: binary, description: 'JPG, PNG o WEBP (máx. 5 MB)' }
+                quitarAvatar: { type: boolean }
+          application/json:
+            schema:
+              type: object
+              properties:
+                nombre: { type: string }
+                bio: { type: string, maxLength: 160 }
+                quitarAvatar: { type: boolean }
+      responses:
+        '200':
+          description: Perfil actualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  usuario: { $ref: '#/components/schemas/UsuarioPrivado' }
+        '400': { $ref: '#/components/responses/Error' }
+
+  /usuarios/yo/guardados:
+    get:
+      tags: [Usuarios]
+      summary: Mis Favoritos (proyectadas guardadas), de la más reciente a la más antigua
+      parameters:
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/Limite'
+      responses:
+        '200': { $ref: '#/components/responses/ListaVideos' }
+
+  /usuarios/yo/me-gusta:
+    get:
+      tags: [Usuarios]
+      summary: Proyectadas a las que di me gusta, de la más reciente a la más antigua
+      parameters:
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/Limite'
+      responses:
+        '200': { $ref: '#/components/responses/ListaVideos' }
+
+  /usuarios/yo/videos:
+    get:
+      tags: [Usuarios]
+      summary: Mis Proyectadas, incluidos mis borradores
+      description: |
+        Primero los borradores (del último guardado al primero) y luego las publicadas
+        (de la más reciente a la más antigua). `conteo` trae el total de cada estado.
+      parameters:
+        - name: estado
+          in: query
+          schema: { type: string, enum: [todas, publicadas, borradores], default: todas }
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/Limite'
+      responses:
+        '200':
+          description: Página de mis videos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  videos:
+                    type: array
+                    items: { $ref: '#/components/schemas/Video' }
+                  hayMas: { type: boolean }
+                  conteo:
+                    type: object
+                    properties:
+                      publicadas: { type: integer, example: 9 }
+                      borradores: { type: integer, example: 5 }
+
+  /usuarios/{username}:
+    get:
+      tags: [Usuarios]
+      summary: Perfil completo (estadísticas, insignia y si lo sigues)
+      parameters:
+        - $ref: '#/components/parameters/Username'
+      responses:
+        '200':
+          description: Perfil
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  usuario: { $ref: '#/components/schemas/Perfil' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /usuarios/{username}/videos:
+    get:
+      tags: [Usuarios]
+      summary: Videos publicados por el usuario
+      parameters:
+        - $ref: '#/components/parameters/Username'
+        - name: orden
+          in: query
+          schema: { type: string, enum: [recientes, populares], default: recientes }
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/Limite'
+      responses:
+        '200':
+          description: Página de videos y total publicado por el usuario
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  videos:
+                    type: array
+                    items: { $ref: '#/components/schemas/Video' }
+                  hayMas: { type: boolean }
+                  total: { type: integer }
+
+  /usuarios/{username}/seguidores:
+    get:
+      tags: [Usuarios]
+      summary: Seguidores del usuario
+      parameters:
+        - $ref: '#/components/parameters/Username'
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/Limite'
+      responses:
+        '200': { $ref: '#/components/responses/ListaUsuarios' }
+
+  /usuarios/{username}/seguidos:
+    get:
+      tags: [Usuarios]
+      summary: Cuentas que sigue el usuario
+      parameters:
+        - $ref: '#/components/parameters/Username'
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/Limite'
+      responses:
+        '200': { $ref: '#/components/responses/ListaUsuarios' }
+
+  /usuarios/{username}/seguir:
+    post:
+      tags: [Usuarios]
+      summary: Seguir al usuario
+      parameters:
+        - $ref: '#/components/parameters/Username'
+      responses:
+        '200': { $ref: '#/components/responses/EstadoSeguimiento' }
+        '400': { $ref: '#/components/responses/Error' }
+    delete:
+      tags: [Usuarios]
+      summary: Dejar de seguir al usuario
+      parameters:
+        - $ref: '#/components/parameters/Username'
+      responses:
+        '200': { $ref: '#/components/responses/EstadoSeguimiento' }
+
+  /videos/feed:
+    get:
+      tags: [Videos]
+      summary: Feed vertical estilo TikTok
+      description: |
+        - `para-ti`: todos los videos ordenados por tendencia (interacción que decae con el tiempo).
+        - `siguiendo`: videos de las cuentas que sigues, más recientes primero.
+        - `elite`: videos de creadores con insignia Gran Maestro vigente.
+
+        Envía el `desde` devuelto por la primera página en las siguientes para que la paginación no se desplace.
+      parameters:
+        - name: tipo
+          in: query
+          schema: { type: string, enum: [para-ti, siguiendo, elite], default: para-ti }
+        - $ref: '#/components/parameters/Pagina'
+        - { name: limite, in: query, schema: { type: integer, default: 6, maximum: 20 } }
+        - { name: desde, in: query, schema: { type: string, format: date-time } }
+      responses:
+        '200':
+          description: Página del feed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  videos:
+                    type: array
+                    items: { $ref: '#/components/schemas/Video' }
+                  hayMas: { type: boolean }
+                  desde: { type: string, format: date-time }
+
+  /videos:
+    post:
+      tags: [Videos]
+      summary: Publica una proyectada (suma 1 a la racha) o la guarda como borrador
+      description: |
+        Con `borrador=true` el video se guarda sin publicar: solo lo ve su autor, no aparece en el
+        feed ni en su perfil y no cuenta para la racha hasta publicarlo con `POST /videos/{id}/publicar`.
+        En ese caso la respuesta solo trae `video`.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [video]
+              properties:
+                video: { type: string, format: binary, description: 'MP4, WEBM o MOV (máx. 100 MB por defecto)' }
+                miniatura: { type: string, format: binary, description: 'Imagen de portada opcional (JPG, PNG o WEBP)' }
+                descripcion: { type: string, maxLength: 300, example: 'Mi primera proyectada #cine' }
+                duracion: { type: number, description: Segundos, example: 32.5 }
+                borrador: { type: boolean, default: false, description: Guardar sin publicar }
+      responses:
+        '201': { $ref: '#/components/responses/Publicacion' }
+        '400': { $ref: '#/components/responses/Error' }
+        '413': { $ref: '#/components/responses/Error' }
+        '415': { $ref: '#/components/responses/Error' }
+
+  /videos/{id}:
+    get:
+      tags: [Videos]
+      summary: Obtiene una proyectada (un borrador solo lo ve su autor)
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Video
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  video: { $ref: '#/components/schemas/Video' }
+        '404': { $ref: '#/components/responses/Error' }
+    patch:
+      tags: [Videos]
+      summary: Edita la descripción o la portada de un borrador propio
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        content:
+          multipart/form-data:
+            schema: { $ref: '#/components/schemas/CambiosBorrador' }
+          application/json:
+            schema:
+              type: object
+              properties:
+                descripcion: { type: string, maxLength: 300 }
+      responses:
+        '200':
+          description: Borrador guardado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  video: { $ref: '#/components/schemas/Video' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+    delete:
+      tags: [Videos]
+      summary: Elimina una proyectada o un borrador propio (y sus likes y comentarios)
+      description: Borrar un borrador no afecta la racha.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Eliminado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  eliminado: { type: boolean }
+                  estado: { type: string, enum: [publicada, borrador], description: Estado que tenía el video }
+                  insignia: { $ref: '#/components/schemas/Insignia' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /videos/{id}/publicar:
+    post:
+      tags: [Videos]
+      summary: Publica un borrador propio (suma 1 a la racha)
+      description: Puede incluir la descripción y la portada finales; se guardan antes de publicar.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        content:
+          multipart/form-data:
+            schema: { $ref: '#/components/schemas/CambiosBorrador' }
+          application/json:
+            schema:
+              type: object
+              properties:
+                descripcion: { type: string, maxLength: 300 }
+      responses:
+        '200': { $ref: '#/components/responses/Publicacion' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /videos/{id}/like:
+    post:
+      tags: [Videos]
+      summary: Dar me gusta (idempotente)
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200': { $ref: '#/components/responses/EstadoLike' }
+        '404': { $ref: '#/components/responses/Error' }
+    delete:
+      tags: [Videos]
+      summary: Quitar me gusta
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200': { $ref: '#/components/responses/EstadoLike' }
+
+  /videos/{id}/guardar:
+    post:
+      tags: [Videos]
+      summary: Guardar en Favoritos (idempotente)
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200': { $ref: '#/components/responses/EstadoGuardado' }
+        '404': { $ref: '#/components/responses/Error' }
+    delete:
+      tags: [Videos]
+      summary: Quitar de Favoritos
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200': { $ref: '#/components/responses/EstadoGuardado' }
+
+  /videos/{id}/vista:
+    post:
+      tags: [Videos]
+      summary: Suma una reproducción
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204': { description: Registrada }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /videos/{id}/comentarios:
+    get:
+      tags: [Comentarios]
+      summary: Comentarios principales de una proyectada
+      description: |
+        Solo los comentarios principales; sus respuestas se piden con `GET /comentarios/{id}/respuestas`.
+        `total` cuenta comentarios y respuestas.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - name: orden
+          in: query
+          description: '`votados`: más me gusta primero. `recientes`: más nuevos primero.'
+          schema: { type: string, enum: [recientes, votados], default: recientes }
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/Limite'
+      responses:
+        '200':
+          description: Comentarios
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  comentarios:
+                    type: array
+                    items: { $ref: '#/components/schemas/Comentario' }
+                  total: { type: integer }
+                  hayMas: { type: boolean }
+    post:
+      tags: [Comentarios]
+      summary: Comenta una proyectada o responde a un comentario
+      description: |
+        Con `respuestaA` se responde a un comentario. Responder a una respuesta la agrega al mismo
+        hilo: solo hay un nivel de respuestas.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [texto]
+              properties:
+                texto: { type: string, maxLength: 500, example: '¡Qué encuadre tan increíble!' }
+                respuestaA: { type: string, description: Id del comentario al que se responde }
+      responses:
+        '201':
+          description: Comentario creado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  comentario: { $ref: '#/components/schemas/Comentario' }
+                  comentariosCount: { type: integer }
+        '400': { $ref: '#/components/responses/Error' }
+
+  /comentarios/{id}/respuestas:
+    get:
+      tags: [Comentarios]
+      summary: Respuestas de un comentario (de la más antigua a la más reciente)
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/Limite'
+      responses:
+        '200':
+          description: Respuestas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  respuestas:
+                    type: array
+                    items: { $ref: '#/components/schemas/Comentario' }
+                  hayMas: { type: boolean }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /comentarios/{id}/like:
+    post:
+      tags: [Comentarios]
+      summary: Dar me gusta a un comentario o respuesta (idempotente)
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200': { $ref: '#/components/responses/EstadoLike' }
+        '404': { $ref: '#/components/responses/Error' }
+    delete:
+      tags: [Comentarios]
+      summary: Quitar el me gusta de un comentario
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200': { $ref: '#/components/responses/EstadoLike' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /comentarios/{id}:
+    delete:
+      tags: [Comentarios]
+      summary: Elimina un comentario (su autor o el dueño del video)
+      description: Un comentario principal se elimina junto con sus respuestas.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Eliminado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  eliminado: { type: boolean }
+                  eliminados: { type: integer, description: Comentarios borrados (incluye sus respuestas) }
+                  comentariosCount: { type: integer }
+        '403': { $ref: '#/components/responses/Error' }
+
+  /notificaciones:
+    get:
+      tags: [Notificaciones]
+      summary: Mis notificaciones, de la más reciente a la más antigua
+      description: |
+        Nuevos seguidores, me gusta a mis proyectadas y comentarios, comentarios y respuestas, y avisos
+        de racha: `racha_por_vencer` cuando quedan 4 horas o menos para publicar y `racha_apagada` cuando
+        la insignia se apagó y aún se puede revivir. Los avisos de racha se generan al consultar.
+      parameters:
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/Limite'
+      responses:
+        '200':
+          description: Página de notificaciones
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  notificaciones:
+                    type: array
+                    items: { $ref: '#/components/schemas/Notificacion' }
+                  hayMas: { type: boolean }
+                  noLeidas: { type: integer }
+
+  /notificaciones/no-leidas:
+    get:
+      tags: [Notificaciones]
+      summary: Cantidad de notificaciones sin leer (para el punto de la campana)
+      responses:
+        '200': { $ref: '#/components/responses/NoLeidas' }
+
+  /notificaciones/leer:
+    post:
+      tags: [Notificaciones]
+      summary: Marca mis notificaciones como leídas
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                hasta:
+                  type: string
+                  format: date-time
+                  description: Solo hasta esta fecha (la más reciente que se mostró). Sin ella, todas.
+      responses:
+        '200': { $ref: '#/components/responses/NoLeidas' }
+
+  /insignias/niveles:
+    get:
+      tags: [Insignias]
+      summary: Niveles de insignia y reglas de la racha
+      security: []
+      responses:
+        '200':
+          description: Configuración
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  niveles:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        clave: { type: string, example: diamante }
+                        nombre: { type: string, example: Diamante }
+                        minimo: { type: integer, example: 30 }
+                        forma: { type: string, enum: [circulo, diamante, rombo, corona] }
+                  reglas:
+                    type: object
+                    properties:
+                      horasParaPublicar: { type: integer, example: 24 }
+                      horasParaRevivir: { type: integer, example: 24 }
+                      oportunidadesPorMes: { type: integer, example: 3 }
+
+  /insignias/yo:
+    get:
+      tags: [Insignias]
+      summary: Estado actual de mi insignia
+      responses:
+        '200':
+          description: Insignia
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  insignia: { $ref: '#/components/schemas/Insignia' }
+
+  /insignias/revivir:
+    post:
+      tags: [Insignias]
+      summary: Revive mi insignia apagada (consume una oportunidad)
+      responses:
+        '200':
+          description: Insignia encendida de nuevo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  insignia: { $ref: '#/components/schemas/Insignia' }
+        '409': { $ref: '#/components/responses/Error' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, pattern: '^[a-f0-9]{24}$' }
+    Username:
+      name: username
+      in: path
+      required: true
+      schema: { type: string }
+      example: valeria_cinema
+    Pagina:
+      name: pagina
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    Limite:
+      name: limite
+      in: query
+      schema: { type: integer, minimum: 1 }
+
+  responses:
+    Error:
+      description: Error con mensaje legible
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Sesion:
+      description: Sesión iniciada
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              token: { type: string }
+              usuario: { $ref: '#/components/schemas/UsuarioPrivado' }
+    NoLeidas:
+      description: Notificaciones sin leer
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              noLeidas: { type: integer, example: 3 }
+    Publicacion:
+      description: Video publicado (o borrador guardado, que solo trae `video`)
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              video: { $ref: '#/components/schemas/Video' }
+              insignia: { $ref: '#/components/schemas/Insignia' }
+              evento:
+                type: object
+                properties:
+                  revivida: { type: boolean, description: La publicación revivió una insignia apagada }
+                  nuevoNivel: { type: string, nullable: true, example: plata, description: Nivel alcanzado con esta publicación }
+    ListaVideos:
+      description: Página de videos
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              videos:
+                type: array
+                items: { $ref: '#/components/schemas/Video' }
+              hayMas: { type: boolean }
+    ListaUsuarios:
+      description: Página de usuarios
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              usuarios:
+                type: array
+                items:
+                  allOf:
+                    - $ref: '#/components/schemas/UsuarioPublico'
+                    - type: object
+                      properties:
+                        siguiendo: { type: boolean }
+                        esPropio: { type: boolean }
+              hayMas: { type: boolean }
+    EstadoSeguimiento:
+      description: Estado del seguimiento
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              siguiendo: { type: boolean }
+              seguidores: { type: integer }
+    EstadoLike:
+      description: Estado del me gusta
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              meGusta: { type: boolean }
+              likesCount: { type: integer }
+    EstadoGuardado:
+      description: Estado del guardado en Favoritos
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              guardado: { type: boolean }
+              guardadosCount: { type: integer }
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error: { type: string, example: Usuario o contraseña incorrectos }
+        detalles:
+          type: array
+          items: { type: string }
+
+    InsigniaCorta:
+      type: object
+      properties:
+        nivel:
+          type: string
+          nullable: true
+          enum: [bronce, plata, oro, diamante, rubi, gran_maestro, null]
+        estado: { type: string, enum: [sin_insignia, activa, apagada] }
+
+    Insignia:
+      type: object
+      properties:
+        nivel: { type: string, nullable: true, example: oro }
+        nombre: { type: string, nullable: true, example: Oro }
+        estado: { type: string, enum: [sin_insignia, activa, apagada] }
+        progreso: { type: integer, example: 17, description: Videos en la racha actual }
+        siguiente:
+          type: object
+          nullable: true
+          properties:
+            clave: { type: string, example: diamante }
+            nombre: { type: string, example: Diamante }
+            minimo: { type: integer, example: 30 }
+            faltan: { type: integer, example: 13 }
+        porcentajeSiguiente: { type: integer, example: 13 }
+        venceEn:
+          type: string
+          format: date-time
+          nullable: true
+          description: Activa → límite para publicar. Apagada → límite para revivirla.
+        oportunidades: { type: integer, example: 2 }
+        oportunidadesPorMes: { type: integer, example: 3 }
+        proximoReinicio: { type: string, format: date, example: '2026-11-01' }
+        ultimaPerdida:
+          type: object
+          nullable: true
+          properties:
+            nivel: { type: string, nullable: true }
+            progreso: { type: integer }
+            fecha: { type: string, format: date-time }
+
+    UsuarioPublico:
+      type: object
+      properties:
+        id: { type: string }
+        nombre: { type: string }
+        username: { type: string }
+        avatar: { type: string, example: /uploads/avatares/1730000000000-ab12.jpg }
+        insignia: { $ref: '#/components/schemas/InsigniaCorta' }
+
+    UsuarioPrivado:
+      type: object
+      properties:
+        id: { type: string }
+        nombre: { type: string }
+        username: { type: string }
+        email: { type: string }
+        bio: { type: string }
+        avatar: { type: string }
+        creadoEn: { type: string, format: date-time }
+        insignia: { $ref: '#/components/schemas/Insignia' }
+
+    Perfil:
+      type: object
+      properties:
+        id: { type: string }
+        nombre: { type: string }
+        username: { type: string }
+        bio: { type: string }
+        avatar: { type: string }
+        creadoEn: { type: string, format: date-time }
+        insignia: { $ref: '#/components/schemas/Insignia' }
+        estadisticas:
+          type: object
+          properties:
+            seguidores: { type: integer }
+            seguidos: { type: integer }
+            videos: { type: integer, description: Proyectadas publicadas }
+            likes: { type: integer, description: Me gusta sumados de todos sus videos }
+            borradores: { type: integer, description: Solo en el perfil propio }
+        portada:
+          type: object
+          nullable: true
+          description: Su proyectada más popular, usada como portada del perfil
+          properties:
+            url: { type: string }
+            miniatura: { type: string }
+        siguiendo: { type: boolean }
+        esPropio: { type: boolean }
+
+    CambiosBorrador:
+      type: object
+      properties:
+        descripcion: { type: string, maxLength: 300 }
+        miniatura: { type: string, format: binary, description: 'Nueva portada (JPG, PNG o WEBP, máx. 5 MB)' }
+
+    Video:
+      type: object
+      properties:
+        id: { type: string }
+        estado: { type: string, enum: [publicada, borrador] }
+        url: { type: string, example: /uploads/videos/1730000000000-ab12.mp4 }
+        miniatura: { type: string }
+        descripcion: { type: string }
+        hashtags:
+          type: array
+          items: { type: string }
+        duracion: { type: number }
+        likesCount: { type: integer }
+        comentariosCount: { type: integer }
+        guardadosCount: { type: integer }
+        vistas: { type: integer }
+        nivelInsignia:
+          type: string
+          nullable: true
+          description: Insignia que alcanzó el autor al publicar este video
+          example: oro
+        creadoEn: { type: string, format: date-time, description: Cuando se subió }
+        publicadoEn: { type: string, format: date-time, nullable: true, description: Null mientras es borrador }
+        actualizadoEn: { type: string, format: date-time, description: Último guardado }
+        autor:
+          allOf:
+            - $ref: '#/components/schemas/UsuarioPublico'
+            - type: object
+              properties:
+                seguidores: { type: integer }
+        meGusta: { type: boolean }
+        guardado: { type: boolean, description: El usuario actual la guardó en Favoritos }
+        siguiendoAutor: { type: boolean }
+        esMio: { type: boolean }
+
+    Notificacion:
+      type: object
+      properties:
+        id: { type: string }
+        tipo:
+          type: string
+          enum: [seguidor, like, comentario, respuesta, like_comentario, racha_por_vencer, racha_apagada]
+        leida: { type: boolean }
+        creadoEn: { type: string, format: date-time }
+        actor:
+          allOf:
+            - $ref: '#/components/schemas/UsuarioPublico'
+          nullable: true
+          description: Quién lo hizo (null en los avisos de racha)
+        video:
+          type: object
+          nullable: true
+          properties:
+            id: { type: string }
+            url: { type: string }
+            miniatura: { type: string }
+            autor:
+              type: object
+              properties:
+                username: { type: string }
+        comentario:
+          type: object
+          nullable: true
+          properties:
+            id: { type: string }
+            texto: { type: string }
+        venceEn: { type: string, format: date-time, nullable: true, description: Plazo del aviso de racha }
+        nivel: { type: string, nullable: true, description: Insignia en juego (avisos de racha) }
+
+    Comentario:
+      type: object
+      properties:
+        id: { type: string }
+        texto: { type: string }
+        creadoEn: { type: string, format: date-time }
+        autor: { $ref: '#/components/schemas/UsuarioPublico' }
+        respuestaA: { type: string, nullable: true, description: Comentario principal al que responde }
+        likesCount: { type: integer }
+        respuestasCount: { type: integer }
+        meGusta: { type: boolean, description: El usuario actual le dio me gusta }
+        puedeEliminar: { type: boolean }

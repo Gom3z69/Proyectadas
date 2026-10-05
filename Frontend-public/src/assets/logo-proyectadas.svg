@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <defs>
+    <linearGradient id="marca" x1="4" y1="4" x2="44" y2="44" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#A078FF"/>
+      <stop offset=".55" stop-color="#4CD7F6"/>
+      <stop offset="1" stop-color="#4EDEA3"/>
+    </linearGradient>
+    <linearGradient id="haz" x1="22" y1="24" x2="44" y2="24" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E9DDFF" stop-opacity=".75"/>
+      <stop offset="1" stop-color="#4CD7F6" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="44" height="44" rx="14" fill="#0F131C"/>
+  <rect x="3.25" y="3.25" width="41.5" height="41.5" rx="12.75" stroke="url(#marca)" stroke-width="2.5"/>
+  <path d="M23 19.5 43 11v26l-20-8.5z" fill="url(#haz)"/>
+  <circle cx="18" cy="24" r="9.5" fill="url(#marca)"/>
+  <path d="M15.5 19.4v9.2l7.4-4.6z" fill="#0F131C"/>
+</svg>

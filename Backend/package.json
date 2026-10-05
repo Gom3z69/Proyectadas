@@ -1,0 +1,29 @@
+{
+  "name": "proyectadas-backend",
+  "version": "1.0.0",
+  "description": "API REST de PROYECTADAS: videos verticales, likes, comentarios, seguidores e insignias por racha de publicación.",
+  "private": true,
+  "type": "module",
+  "main": "Index.js",
+  "scripts": {
+    "dev": "node --watch Index.js",
+    "start": "node Index.js",
+    "seed": "node scripts/seed.js"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
+    "helmet": "^8.3.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.10.4",
+    "multer": "^2.4.0",
+    "nodemailer": "^10.0.15",
+    "swagger-ui-express": "^5.0.1",
+    "yaml": "^2.9.1"
+  }
+}
