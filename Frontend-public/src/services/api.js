@@ -25,8 +25,9 @@ function cabecerasAutenticacion() {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
-function avisarSiExpiro(status) {
-  if (status === 401 && leerToken()) window.dispatchEvent(new Event(EVENTO_SESION_EXPIRADA))
+/** Un 401 con sesión guardada cierra la sesión; el mensaje dice por qué (expiró, cambió la contraseña...). */
+function avisarSiExpiro(status, mensaje) {
+  if (status === 401 && leerToken()) window.dispatchEvent(new CustomEvent(EVENTO_SESION_EXPIRADA, { detail: mensaje }))
 }
 
 /**
@@ -54,7 +55,7 @@ export async function peticion(ruta, { metodo = 'GET', datos, formulario, senal 
   if (respuesta.status === 204) return null
   const json = await respuesta.json().catch(() => null)
   if (!respuesta.ok) {
-    avisarSiExpiro(respuesta.status)
+    avisarSiExpiro(respuesta.status, json?.error)
     throw new ErrorApi(json?.error ?? `Error ${respuesta.status}`, respuesta.status, json?.detalles)
   }
   return json
@@ -80,7 +81,7 @@ export function peticionConProgreso(ruta, formulario, { onProgreso, senal } = {}
         // Respuesta vacía o no JSON.
       }
       if (xhr.status >= 200 && xhr.status < 300) return resolve(json)
-      avisarSiExpiro(xhr.status)
+      avisarSiExpiro(xhr.status, json?.error)
       reject(new ErrorApi(json?.error ?? `Error ${xhr.status}`, xhr.status, json?.detalles))
     }
     xhr.onerror = () => reject(new ErrorApi(SIN_CONEXION, 0))

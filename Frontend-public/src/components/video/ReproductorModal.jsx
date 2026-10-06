@@ -13,7 +13,17 @@ const claseBotonNavegacion =
  * Reproduce una proyectada a pantalla completa desde una cuadrícula, con anterior/siguiente.
  * `onActualizar(id, cambios)`, `onSeguirAutor(autorId, resultado)` y `onEliminado(id, respuesta)` sincronizan la lista.
  */
-export default function ReproductorModal({ videos, indice, onCambiarIndice, onCerrar, onActualizar, onSeguirAutor, onEliminado }) {
+/** onOcultar({ videoId, autorId }): se reportó el video o se bloqueó a su autor; hay que quitarlo de la lista. */
+export default function ReproductorModal({
+  videos,
+  indice,
+  onCambiarIndice,
+  onCerrar,
+  onActualizar,
+  onSeguirAutor,
+  onEliminado,
+  onOcultar,
+}) {
   const capa = useRef(null)
   const [silenciado, setSilenciado] = useState(false)
   const [comentariosMovil, setComentariosMovil] = useState(false)
@@ -71,6 +81,7 @@ export default function ReproductorModal({ videos, indice, onCambiarIndice, onCe
           onSeguirAutor={(resultado) => onSeguirAutor(video.autor.id, resultado)}
           onAbrirComentarios={abrirComentarios}
           onEliminado={(respuesta) => onEliminado(video.id, respuesta)}
+          onOcultar={onOcultar}
         />
       </div>
 

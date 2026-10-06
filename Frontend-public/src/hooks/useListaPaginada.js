@@ -57,9 +57,14 @@ export function useListaPaginada(cargarPagina) {
     setEstado((previo) => ({ ...previo, items: previo.items.filter((item) => item.id !== id) }))
   }, [])
 
+  /** Quita todos los items que cumplan `condicion` (p. ej. los videos de una cuenta bloqueada). */
+  const quitarDonde = useCallback((condicion) => {
+    setEstado((previo) => ({ ...previo, items: previo.items.filter((item) => !condicion(item)) }))
+  }, [])
+
   const agregarAlInicio = useCallback((item) => {
     setEstado((previo) => ({ ...previo, items: [item, ...previo.items.filter((i) => i.id !== item.id)] }))
   }, [])
 
-  return { ...estado, cargarMas, actualizarItem, actualizarDonde, quitarItem, agregarAlInicio }
+  return { ...estado, cargarMas, actualizarItem, actualizarDonde, quitarItem, quitarDonde, agregarAlInicio }
 }

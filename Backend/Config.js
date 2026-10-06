@@ -41,6 +41,19 @@ const config = {
   },
   // Usuarios con acceso al panel de moderación.
   admins: lista(process.env.ADMINS ?? '').map((nombre) => nombre.toLowerCase().replace(/^@/, '')),
+  // Archivos en Cloudinary (opcional). Sin credenciales se guardan en uploads/.
+  cloudinary: {
+    url: process.env.CLOUDINARY_URL?.trim(),
+    nombre: process.env.CLOUDINARY_CLOUD_NAME?.trim(),
+    clave: process.env.CLOUDINARY_API_KEY?.trim(),
+    secreto: process.env.CLOUDINARY_API_SECRET?.trim(),
+    carpeta: process.env.CLOUDINARY_CARPETA?.trim() || 'proyectadas',
+  },
+  // Límites anti-spam por usuario.
+  limites: {
+    subidasPorHora: Number(process.env.LIMITE_SUBIDAS_POR_HORA) || 20,
+    comentariosPor10Min: Number(process.env.LIMITE_COMENTARIOS_POR_10_MIN) || 30,
+  },
   zonaHoraria: process.env.APP_TIMEZONE ?? 'America/El_Salvador',
   maxVideoMB: Number(process.env.MAX_VIDEO_MB) || 100,
   rutas: {

@@ -31,6 +31,10 @@ export default function Privacidad() {
             <strong>Insignia:</strong> el progreso de tu racha, cuándo publicaste por última vez y las vidas que usaste en el
             mes.
           </li>
+          <li>
+            <strong>Seguridad:</strong> las cuentas que bloqueas y los reportes que envías. La persona reportada no sabe quién
+            la reportó.
+          </li>
         </ul>
       </Seccion>
 
@@ -42,7 +46,7 @@ export default function Privacidad() {
         </p>
         <p>
           <strong>Solo tú ves</strong> tu correo, tus borradores, tus Favoritos, la lista de proyectadas a las que diste me
-          gusta y tus notificaciones.
+          gusta, tus notificaciones y las cuentas que bloqueaste.
         </p>
       </Seccion>
 
@@ -51,6 +55,8 @@ export default function Privacidad() {
           <li>Mostrar tu perfil y armar el feed (Tendencias ordena por interacción y antigüedad).</li>
           <li>Calcular tu racha y tu insignia, y avisarte cuando tu racha está por vencer.</li>
           <li>Avisarte de nuevos seguidores, me gusta, comentarios y respuestas.</li>
+          <li>Enviarte por correo el enlace para restablecer tu contraseña y avisos de seguridad de tu cuenta.</li>
+          <li>Que el equipo de moderación revise lo que se reporta y retire lo que incumpla las reglas.</li>
         </ul>
         <p>PROYECTADAS no muestra publicidad ni envía tus datos a servicios de análisis o de marketing.</p>
       </Seccion>
@@ -58,7 +64,8 @@ export default function Privacidad() {
       <Seccion icono="language" titulo="Servicios externos y tu navegador">
         <p>
           Las tipografías y los íconos se cargan desde Google Fonts, así que tu navegador se conecta a los servidores de
-          Google para descargarlos.
+          Google para descargarlos. Según cómo esté instalada la plataforma, los videos e imágenes pueden guardarse en el
+          servicio de almacenamiento en la nube Cloudinary.
         </p>
         <p>
           Al iniciar sesión se guarda un token en el almacenamiento local de tu navegador para mantenerte conectado; vence a
@@ -77,7 +84,8 @@ export default function Privacidad() {
           <li>Puedes cambiar tu nombre, biografía y foto cuando quieras desde Editar perfil.</li>
         </ul>
         <p>
-          Para eliminar tu cuenta por completo, contacta al equipo de PROYECTADAS desde <Link to="/soporte">Soporte</Link>.
+          Puedes eliminar tu cuenta y todo su contenido cuando quieras desde <Link to="/configuracion">Configuración</Link>.
+          Se borra al instante y no se puede deshacer.
         </p>
       </Seccion>
     </PaginaInformativa>

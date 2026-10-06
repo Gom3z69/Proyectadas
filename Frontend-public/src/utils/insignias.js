@@ -47,11 +47,11 @@ export const ESTILOS_INSIGNIA = {
 // Respaldo mientras llegan los niveles del backend.
 export const NIVELES_POR_DEFECTO = [
   { clave: 'bronce', nombre: 'Bronce', minimo: 1, forma: 'circulo' },
-  { clave: 'plata', nombre: 'Plata', minimo: 5, forma: 'circulo' },
-  { clave: 'oro', nombre: 'Oro', minimo: 15, forma: 'circulo' },
-  { clave: 'diamante', nombre: 'Diamante', minimo: 30, forma: 'diamante' },
-  { clave: 'rubi', nombre: 'Rubí', minimo: 50, forma: 'rombo' },
-  { clave: 'gran_maestro', nombre: 'Gran Maestro', minimo: 100, forma: 'corona' },
+  { clave: 'plata', nombre: 'Plata', minimo: 10, forma: 'circulo' },
+  { clave: 'oro', nombre: 'Oro', minimo: 50, forma: 'circulo' },
+  { clave: 'diamante', nombre: 'Diamante', minimo: 100, forma: 'diamante' },
+  { clave: 'rubi', nombre: 'Rubí', minimo: 200, forma: 'rombo' },
+  { clave: 'gran_maestro', nombre: 'Gran Maestro', minimo: 500, forma: 'corona' },
 ]
 
 // Respaldo de las reglas de la racha mientras llegan del backend.

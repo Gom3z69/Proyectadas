@@ -157,6 +157,7 @@ function PerfilPropio({ username }) {
             compartido.cerrar()
             videoEliminado(respuesta)
           }}
+          onOcultar={compartido.cerrar}
         />
       )}
 

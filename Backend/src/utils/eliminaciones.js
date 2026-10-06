@@ -9,7 +9,7 @@ import Reporte from '../models/Reporte.js';
 import Seguimiento from '../models/Seguimiento.js';
 import Usuario from '../models/Usuario.js';
 import Video from '../models/Video.js';
-import { borrarArchivoPublico } from './archivos.js';
+import { borrarArchivo } from './almacenamiento.js';
 
 const unicos = (ids) => [...new Map(ids.filter(Boolean).map((id) => [String(id), id])).values()];
 
@@ -32,7 +32,7 @@ export async function eliminarVideoCompleto(video) {
     cerrarReportes({ video: video._id }, 'contenido_eliminado'),
     Video.deleteOne({ _id: video._id }),
   ]);
-  await Promise.all([borrarArchivoPublico(video.url), borrarArchivoPublico(video.miniatura)]);
+  await Promise.all([borrarArchivo(video.url), borrarArchivo(video.miniatura)]);
 }
 
 /** Borra un comentario (si es principal, también sus respuestas) y ajusta los contadores. Devuelve cuántos borró. */
@@ -146,6 +146,6 @@ export async function eliminarCuentaCompleta(usuario) {
     cerrarReportes({ usuario: id }, 'cuenta_eliminada'),
   ]);
 
-  await borrarArchivoPublico(usuario.avatar);
+  await borrarArchivo(usuario.avatar);
   await Usuario.deleteOne({ _id: id });
 }

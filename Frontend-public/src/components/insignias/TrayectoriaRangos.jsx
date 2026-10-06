@@ -6,6 +6,38 @@ import IconoInsignia from './IconoInsignia'
 // Contenedor de cada nodo según la forma de la insignia (como en el diseño).
 const REDONDEO = { circulo: 'rounded-full', diamante: 'rounded-xl', rombo: 'rounded-lg', corona: 'rounded-full' }
 
+const proyectadas = (cantidad) => `${cantidad} ${cantidad === 1 ? 'proyectada' : 'proyectadas'}`
+
+/** Texto junto a la barra inferior: lo que falta para el siguiente rango, o el rango que ya tiene. */
+function TextoHito({ insignia }) {
+  const { siguiente } = insignia
+  if (insignia.permanente) {
+    return (
+      <>
+        Tienes el <span className="font-bold text-primary">Rango {insignia.nombre}</span> de forma permanente: no depende
+        de tu racha.
+      </>
+    )
+  }
+  if (siguiente) {
+    return (
+      <>
+        Progreso actual al siguiente hito:{' '}
+        <strong className="text-on-surface">
+          {insignia.progreso}/{siguiente.minimo}
+        </strong>{' '}
+        proyectadas hacia <span className="font-bold text-primary">Rango {siguiente.nombre}</span>.
+      </>
+    )
+  }
+  return (
+    <>
+      Alcanzaste el <span className="font-bold text-primary">Rango {insignia.nombre}</span> con {proyectadas(insignia.progreso)} en
+      tu racha.
+    </>
+  )
+}
+
 /** "Trayectoria de Rangos": de Bronce (menor) a Gran Maestro (mayor), según las proyectadas de la racha. */
 export default function TrayectoriaRangos({ insignia, className = '' }) {
   const niveles = useNivelesInsignia()
@@ -19,17 +51,17 @@ export default function TrayectoriaRangos({ insignia, className = '' }) {
   const margen = 100 / niveles.length / 2
   const avanceHito = siguiente ? Math.min(100, (insignia.progreso / siguiente.minimo) * 100) : 100
 
+  let objetivo = '¡Rango máximo alcanzado!'
+  if (insignia.permanente) objetivo = 'Rango permanente de administración'
+  else if (siguiente) objetivo = `Próximo objetivo: ${siguiente.nombre} (${proyectadas(siguiente.minimo)})`
+
   return (
     <div className={`relative flex flex-col justify-between overflow-hidden rounded-xl bg-surface-container p-space-lg shadow-lg ${className}`}>
       <div className="mb-space-md flex flex-wrap items-center justify-between gap-2">
         <span className="font-label-md text-label-md font-bold tracking-wider text-on-surface-variant uppercase">
           Trayectoria de rangos
         </span>
-        <span className="font-label-sm text-label-sm text-primary">
-          {siguiente
-            ? `Próximo objetivo: ${siguiente.nombre} (${siguiente.minimo} ${siguiente.minimo === 1 ? 'proyectada' : 'proyectadas'})`
-            : '¡Rango máximo alcanzado!'}
-        </span>
+        <span className="font-label-sm text-label-sm text-primary">{objetivo}</span>
       </div>
 
       <div className="sin-scrollbar relative w-full overflow-x-auto py-space-md">
@@ -53,6 +85,8 @@ export default function TrayectoriaRangos({ insignia, className = '' }) {
             const alcanzado = indice < indiceActual
             const actual = indice === indiceActual
             const bloqueado = indice > indiceActual
+            let detalle = `${proyectadas(nivel.minimo)}${alcanzado ? ' ✓' : ''}`
+            if (actual) detalle = insignia.permanente ? 'Permanente' : `${proyectadas(insignia.progreso)} (${apagada ? 'Apagada' : 'Actual'})`
 
             return (
               <li
@@ -90,9 +124,7 @@ export default function TrayectoriaRangos({ insignia, className = '' }) {
                   <span
                     className={`font-label-sm text-label-sm ${actual ? 'font-semibold text-on-surface' : alcanzado ? 'text-tertiary' : 'text-outline'}`}
                   >
-                    {actual
-                      ? `${insignia.progreso} ${insignia.progreso === 1 ? 'proyectada' : 'proyectadas'} (${apagada ? 'Apagada' : 'Actual'})`
-                      : `${nivel.minimo} ${nivel.minimo === 1 ? 'proyectada' : 'proyectadas'}${alcanzado ? ' ✓' : ''}`}
+                    {detalle}
                   </span>
                 </span>
               </li>
@@ -105,20 +137,7 @@ export default function TrayectoriaRangos({ insignia, className = '' }) {
         <div className="flex items-center gap-space-sm">
           <Icono nombre="auto_graph" className="text-xl text-secondary" />
           <span className="font-body-sm text-body-sm text-on-surface-variant">
-            {siguiente ? (
-              <>
-                Progreso actual al siguiente hito:{' '}
-                <strong className="text-on-surface">
-                  {insignia.progreso}/{siguiente.minimo}
-                </strong>{' '}
-                proyectadas hacia <span className="font-bold text-primary">Rango {siguiente.nombre}</span>.
-              </>
-            ) : (
-              <>
-                Alcanzaste el <span className="font-bold text-primary">Rango {insignia.nombre}</span> con {insignia.progreso} {insignia.progreso === 1 ? 'proyectada' : 'proyectadas'}
-                en tu racha.
-              </>
-            )}
+            <TextoHito insignia={insignia} />
           </span>
         </div>
         <div className="h-2 w-full shrink-0 overflow-hidden rounded-full bg-surface-container-lowest sm:w-44">

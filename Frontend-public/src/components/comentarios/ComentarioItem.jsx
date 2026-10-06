@@ -45,6 +45,7 @@ export default function ComentarioItem({
   onActualizar,
   onResponder,
   onEliminar,
+  onReportar,
   children,
 }) {
   const { usuario } = useAuth()
@@ -54,6 +55,7 @@ export default function ComentarioItem({
   const { autor } = comentario
   const acento = !esRespuesta && autor.insignia.estado !== 'apagada' && degradadoInsignia(autor.insignia.nivel, '180deg')
   const perfil = rutaPerfil(autor.username, usuario)
+  const esMio = autor.id === usuario.id
 
   async function eliminar() {
     setEliminando(true)
@@ -95,6 +97,15 @@ export default function ComentarioItem({
             <span className="flex items-center gap-1 text-primary">
               <Icono nombre="verified" relleno className="text-sm" /> Creador
             </span>
+          )}
+          {!esMio && onReportar && (
+            <button
+              type="button"
+              onClick={() => onReportar(comentario)}
+              className="flex items-center gap-1 transition-colors hover:text-error"
+            >
+              <Icono nombre="flag" className="text-sm" /> Reportar
+            </button>
           )}
           {comentario.puedeEliminar &&
             (confirmando ? (

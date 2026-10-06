@@ -65,7 +65,8 @@ export default function MisProyectadas() {
     } else if (evento.revivida) {
       toast.insignia(insignia.nivel, '¡Tu insignia revivió!', `Usaste 1 vida; te quedan ${insignia.oportunidades} este mes.`)
     } else {
-      toast.exito('¡Proyectada publicada!', 'Ya aparece en el feed. Tu racha sigue encendida.')
+      // Con la insignia permanente (cuenta administradora) no hay racha que mencionar.
+      toast.exito('¡Proyectada publicada!', insignia.permanente ? 'Ya aparece en el feed.' : 'Ya aparece en el feed. Tu racha sigue encendida.')
     }
   }
 

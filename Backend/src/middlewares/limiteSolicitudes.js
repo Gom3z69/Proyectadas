@@ -1,4 +1,5 @@
 import rateLimit from 'express-rate-limit';
+import config from '../../Config.js';
 
 const opcionesBase = {
   standardHeaders: 'draft-8',
@@ -40,4 +41,30 @@ export const limiteConfirmacion = rateLimit({
   skipSuccessfulRequests: true,
   keyGenerator: porUsuario,
   message: { error: 'Demasiados intentos con la contraseña equivocada. Espera unos minutos.' },
+});
+
+// Reportes: evita usarlos para acosar o saturar al equipo de moderación.
+export const limiteReportes = rateLimit({
+  ...opcionesBase,
+  windowMs: 60 * 60 * 1000,
+  limit: 20,
+  keyGenerator: porUsuario,
+  message: { error: 'Enviaste demasiados reportes en poco tiempo. Intenta más tarde.' },
+});
+
+// Anti-spam por usuario: subidas de video (publicadas o borradores) y comentarios.
+export const limiteSubidas = rateLimit({
+  ...opcionesBase,
+  windowMs: 60 * 60 * 1000,
+  limit: config.limites.subidasPorHora,
+  keyGenerator: porUsuario,
+  message: { error: 'Subiste demasiadas proyectadas en poco tiempo. Espera un rato antes de subir otra.' },
+});
+
+export const limiteComentarios = rateLimit({
+  ...opcionesBase,
+  windowMs: 10 * 60 * 1000,
+  limit: config.limites.comentariosPor10Min,
+  keyGenerator: porUsuario,
+  message: { error: 'Estás comentando muy rápido. Espera unos minutos antes de seguir.' },
 });

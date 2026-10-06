@@ -1,4 +1,6 @@
+import { Suspense } from 'react'
 import { Outlet, useLocation } from 'react-router'
+import CargandoPagina from '../ui/CargandoPagina'
 import Resplandores from '../ui/Resplandores'
 import Footer from './Footer'
 import Header from './Header'
@@ -15,7 +17,9 @@ export default function Layout() {
       <Resplandores />
       <Header />
       <main className="w-full pt-20">
-        <Outlet />
+        <Suspense fallback={<CargandoPagina />}>
+          <Outlet />
+        </Suspense>
       </main>
       {!esFeed && <Footer sobreNavegacionMovil />}
       <NavegacionMovil />

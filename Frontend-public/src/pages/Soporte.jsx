@@ -64,6 +64,44 @@ function preguntas(reglas) {
       ),
     },
     {
+      pregunta: 'Olvidé mi contraseña, ¿cómo entro?',
+      respuesta: (
+        <>
+          En la pantalla de inicio de sesión toca <strong>¿Olvidaste tu contraseña?</strong> y escribe tu correo: te
+          enviaremos un enlace para crear una nueva. Vence en 1 hora y solo sirve una vez; revisa también la carpeta de
+          spam.
+        </>
+      ),
+    },
+    {
+      pregunta: '¿Cómo cambio mi correo o mi contraseña?',
+      respuesta: (
+        <>
+          En <Link to="/configuracion">Configuración</Link> (menú de tu foto). Te pediremos tu contraseña actual; al
+          cambiarla se cierra la sesión en tus otros dispositivos.
+        </>
+      ),
+    },
+    {
+      pregunta: '¿Cómo bloqueo o reporto a alguien?',
+      respuesta: (
+        <>
+          Desde el menú <strong>⋮</strong> de una proyectada, el botón <strong>Reportar</strong> de un comentario o el menú{' '}
+          <strong>⋯</strong> de un perfil. Al bloquear, ninguna de las dos cuentas verá a la otra. Lo que reportas deja de
+          aparecerte y el equipo de moderación lo revisa. Desbloquea a quien quieras desde Configuración.
+        </>
+      ),
+    },
+    {
+      pregunta: '¿Cómo elimino mi cuenta?',
+      respuesta: (
+        <>
+          En <Link to="/configuracion">Configuración</Link>, al final, toca <strong>Eliminar mi cuenta</strong> y confirma
+          con tu contraseña. Se borra todo tu contenido y no se puede deshacer.
+        </>
+      ),
+    },
+    {
       pregunta: '¿Cómo cambio mi foto, nombre o biografía?',
       respuesta: (
         <>
@@ -123,7 +161,7 @@ export default function Soporte() {
           <>
             <p className="font-body-md text-body-md text-on-surface-variant">
               Escríbenos y cuéntanos qué pasó{usuario ? ` (incluye tu usuario @${usuario.username})` : ''}; si es sobre una
-              proyectada, pega su enlace. También atendemos solicitudes para eliminar tu cuenta.
+              proyectada, pega su enlace.
             </p>
             <a
               href={`mailto:${CORREO_SOPORTE}`}

@@ -1,9 +1,9 @@
-import config from '../../Config.js';
 import ComentarioLike from '../models/ComentarioLike.js';
 import Guardado from '../models/Guardado.js';
 import Like from '../models/Like.js';
 import Seguimiento from '../models/Seguimiento.js';
-import { insigniaVisible, resumenInsignia } from './insignias.js';
+import { esAdmin } from './admins.js';
+import { insigniaVisible, nivelDeVideo, resumenInsignia } from './insignias.js';
 
 // Campos del autor que se cargan con populate() para mostrar videos y comentarios.
 export const CAMPOS_AUTOR = 'nombre username avatar insignia';
@@ -17,7 +17,7 @@ export function usuarioPublico(usuario, ahora = new Date()) {
     nombre: usuario.nombre,
     username: usuario.username,
     avatar: usuario.avatar ?? '',
-    insignia: insigniaVisible(usuario.insignia, ahora),
+    insignia: insigniaVisible(usuario, ahora),
   };
 }
 
@@ -31,9 +31,9 @@ export function usuarioPrivado(usuario) {
     bio: usuario.bio,
     avatar: usuario.avatar,
     creadoEn: usuario.createdAt,
-    insignia: resumenInsignia(usuario.insignia),
+    insignia: resumenInsignia(usuario),
     // Puede entrar al panel de moderación.
-    esAdmin: config.admins.includes(usuario.username),
+    esAdmin: esAdmin(usuario),
   };
 }
 
@@ -79,7 +79,7 @@ export async function serializarVideos(videos, usuarioActual) {
       comentariosCount: video.comentariosCount,
       guardadosCount: video.guardadosCount ?? 0,
       vistas: video.vistas,
-      nivelInsignia: video.nivelInsignia ?? null,
+      nivelInsignia: nivelDeVideo(video),
       creadoEn: video.createdAt,
       publicadoEn: video.publicadoEn ?? null,
       actualizadoEn: video.updatedAt,

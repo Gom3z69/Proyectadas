@@ -8,13 +8,15 @@
   "scripts": {
     "dev": "node --watch Index.js",
     "start": "node Index.js",
-    "seed": "node scripts/seed.js"
+    "seed": "node scripts/seed.js",
+    "nube:migrar": "node scripts/subir-a-nube.js"
   },
   "engines": {
     "node": ">=20.19.0"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
+    "cloudinary": "^2.11.0",
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "express-rate-limit": "^8.7.0",

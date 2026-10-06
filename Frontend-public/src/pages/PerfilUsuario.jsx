@@ -4,7 +4,9 @@ import RangoCreador from '../components/insignias/RangoCreador'
 import BannerPerfil from '../components/perfil/BannerPerfil'
 import EstadoCargaPerfil from '../components/perfil/EstadoCargaPerfil'
 import IdentidadPerfil from '../components/perfil/IdentidadPerfil'
+import MenuPerfilAjeno from '../components/perfil/MenuPerfilAjeno'
 import ModalRelaciones from '../components/perfil/ModalRelaciones'
+import PerfilBloqueado from '../components/perfil/PerfilBloqueado'
 import Icono from '../components/ui/Icono'
 import ListaVideos from '../components/video/ListaVideos'
 import ReproductorModal from '../components/video/ReproductorModal'
@@ -34,7 +36,7 @@ export default function PerfilUsuario() {
 
 function PerfilAjeno({ username }) {
   const toast = useToast()
-  const { perfil, cargando, error, actualizar } = usePerfil(username)
+  const { perfil, cargando, error, actualizar, recargar } = usePerfil(username)
   const compartido = useVideoCompartido()
   const [orden, setOrden] = useState('populares')
   const [relaciones, setRelaciones] = useState(null)
@@ -48,6 +50,7 @@ function PerfilAjeno({ username }) {
   )
 
   if (cargando || error) return <EstadoCargaPerfil cargando={cargando} error={error} username={username} />
+  if (perfil.bloqueadoPorMi) return <PerfilBloqueado perfil={perfil} onDesbloqueado={recargar} />
 
   function actualizarSeguimiento(resultado) {
     actualizar((actual) => ({
@@ -83,6 +86,7 @@ function PerfilAjeno({ username }) {
         onCambioSeguimiento={actualizarSeguimiento}
         onVerRelaciones={setRelaciones}
         onCompartir={compartirPerfil}
+        opciones={<MenuPerfilAjeno perfil={perfil} onBloqueado={recargar} />}
       />
       <RangoCreador insignia={perfil.insignia} />
 
@@ -121,6 +125,7 @@ function PerfilAjeno({ username }) {
             variante="publico"
             vacio={{ icono: 'video_library', titulo: 'Sin proyectadas todavía', mensaje: `@${username} aún no publica videos.` }}
             onSeguirAutor={seguirDesdeVideo}
+            onBloquearAutor={recargar}
           />
         </div>
       </section>
@@ -140,6 +145,10 @@ function PerfilAjeno({ username }) {
             seguirDesdeVideo(autorId, resultado)
           }}
           onEliminado={compartido.cerrar}
+          onOcultar={({ autorId }) => {
+            compartido.cerrar()
+            if (autorId) recargar()
+          }}
         />
       )}
 

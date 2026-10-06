@@ -101,6 +101,10 @@ export default function InsigniasCreadores() {
             El feed <strong>Élite Gran Maestro</strong> reúne las proyectadas de quienes tienen la insignia Gran Maestro vigente.
           </li>
           <li>La campana te avisa cuando faltan pocas horas para que venza tu racha y cuando tu insignia se apaga.</li>
+          <li>
+            Las cuentas de administración tienen la insignia {niveles.at(-1).nombre} de forma permanente: no dependen de la
+            racha.
+          </li>
         </ul>
       </Seccion>
 

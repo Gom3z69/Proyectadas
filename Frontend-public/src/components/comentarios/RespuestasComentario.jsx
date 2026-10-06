@@ -14,6 +14,7 @@ export default function RespuestasComentario({
   onActualizar,
   onResponder,
   onEliminar,
+  onReportar,
 }) {
   if (raiz.respuestasCount === 0 && hilo.items.length === 0) return null
   const restantes = Math.max(0, raiz.respuestasCount - hilo.items.length)
@@ -31,6 +32,7 @@ export default function RespuestasComentario({
             onActualizar={(cambios) => onActualizar(respuesta.id, cambios)}
             onResponder={onResponder}
             onEliminar={onEliminar}
+            onReportar={onReportar}
           />
         ))}
 

@@ -7,6 +7,8 @@ export default function AuthProvider({ children }) {
   const [usuario, setUsuario] = useState(null)
   // Si hay token guardado, se valida con el backend antes de mostrar las páginas privadas.
   const [verificando, setVerificando] = useState(() => Boolean(leerToken()))
+  // Por qué se cerró la sesión (se muestra en la pantalla de inicio de sesión).
+  const [avisoSesion, setAvisoSesion] = useState(null)
 
   useEffect(() => {
     if (!leerToken()) return
@@ -18,17 +20,20 @@ export default function AuthProvider({ children }) {
   }, [])
 
   useEffect(() => {
-    const alExpirar = () => {
+    const alExpirar = (evento) => {
       borrarToken()
       setUsuario(null)
+      setAvisoSesion(evento.detail ?? null)
     }
     window.addEventListener(EVENTO_SESION_EXPIRADA, alExpirar)
     return () => window.removeEventListener(EVENTO_SESION_EXPIRADA, alExpirar)
   }, [])
 
+  /** Guarda una sesión nueva (al entrar, registrarse, restablecer o cambiar la contraseña). */
   const abrirSesion = useCallback(({ token, usuario: datosUsuario }) => {
     guardarToken(token)
     setUsuario(datosUsuario)
+    setAvisoSesion(null)
     return datosUsuario
   }, [])
 
@@ -42,10 +47,14 @@ export default function AuthProvider({ children }) {
     [abrirSesion],
   )
 
-  const cerrarSesion = useCallback(() => {
+  /** `aviso` (opcional) se muestra luego en la pantalla de inicio de sesión. */
+  const cerrarSesion = useCallback((aviso = null) => {
     borrarToken()
     setUsuario(null)
+    setAvisoSesion(aviso)
   }, [])
+
+  const limpiarAviso = useCallback(() => setAvisoSesion(null), [])
 
   /** Vuelve a pedir la sesión (p. ej. cuando vence el plazo de la racha). */
   const refrescarUsuario = useCallback(async () => {
@@ -63,13 +72,27 @@ export default function AuthProvider({ children }) {
     () => ({
       usuario,
       verificando,
+      avisoSesion,
       iniciarSesion,
       registrarse,
+      abrirSesion,
       cerrarSesion,
+      limpiarAviso,
       refrescarUsuario,
       actualizarUsuario,
     }),
-    [usuario, verificando, iniciarSesion, registrarse, cerrarSesion, refrescarUsuario, actualizarUsuario],
+    [
+      usuario,
+      verificando,
+      avisoSesion,
+      iniciarSesion,
+      registrarse,
+      abrirSesion,
+      cerrarSesion,
+      limpiarAviso,
+      refrescarUsuario,
+      actualizarUsuario,
+    ],
   )
 
   return <AuthContext value={valor}>{children}</AuthContext>

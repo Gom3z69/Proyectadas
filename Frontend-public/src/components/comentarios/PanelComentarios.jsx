@@ -6,6 +6,7 @@ import { useToast } from '../../hooks/useToast'
 import { comentar, eliminarComentario, listarComentarios } from '../../services/comentarioService'
 import { MAX_COMENTARIO } from '../../utils/comentarios'
 import { formatearNumero } from '../../utils/formato'
+import ModalReporte from '../moderacion/ModalReporte'
 import EstadoVacio from '../ui/EstadoVacio'
 import Icono from '../ui/Icono'
 import Spinner from '../ui/Spinner'
@@ -85,6 +86,7 @@ function HiloComentarios({ video, orden, texto, onTexto, onConteo, idCampo }) {
   const lista = useListaPaginada(cargarPagina)
   const respuestas = useRespuestas()
   const [respondiendoA, setRespondiendoA] = useState(null) // { id, raizId, username }
+  const [reportando, setReportando] = useState(null) // comentario que se está reportando
 
   function responder(comentario) {
     setRespondiendoA({ id: comentario.id, raizId: comentario.respuestaA ?? comentario.id, username: comentario.autor.username })
@@ -110,6 +112,13 @@ function HiloComentarios({ video, orden, texto, onTexto, onConteo, idCampo }) {
       toast.error(fallo.message)
       return false
     }
+  }
+
+  /** Quien reporta un comentario deja de verlo (y si es principal, también su hilo). */
+  function ocultar(comentario) {
+    if (comentario.respuestaA) respuestas.quitar(comentario.respuestaA, comentario.id)
+    else lista.quitarItem(comentario.id)
+    if (respondiendoA?.id === comentario.id || respondiendoA?.raizId === comentario.id) setRespondiendoA(null)
   }
 
   async function eliminar(comentario) {
@@ -139,6 +148,7 @@ function HiloComentarios({ video, orden, texto, onTexto, onConteo, idCampo }) {
             onActualizar={(cambios) => lista.actualizarItem(comentario.id, cambios)}
             onResponder={responder}
             onEliminar={eliminar}
+            onReportar={setReportando}
           >
             <RespuestasComentario
               raiz={comentario}
@@ -149,6 +159,7 @@ function HiloComentarios({ video, orden, texto, onTexto, onConteo, idCampo }) {
               onActualizar={(id, cambios) => respuestas.actualizar(comentario.id, id, cambios)}
               onResponder={responder}
               onEliminar={eliminar}
+              onReportar={setReportando}
             />
           </ComentarioItem>
         ))}
@@ -188,6 +199,14 @@ function HiloComentarios({ video, orden, texto, onTexto, onConteo, idCampo }) {
         respondiendoA={respondiendoA}
         onCancelarRespuesta={() => setRespondiendoA(null)}
         onEnviar={enviar}
+      />
+      <ModalReporte
+        objetivo={reportando && { tipo: 'comentario', id: reportando.id, titulo: 'Reportar comentario' }}
+        onCerrar={() => setReportando(null)}
+        onReportado={() => {
+          ocultar(reportando)
+          setReportando(null)
+        }}
       />
     </>
   )

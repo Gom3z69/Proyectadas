@@ -1,5 +1,6 @@
 import Usuario, { CUENTA_SUSPENDIDA } from '../models/Usuario.js';
 import { ApiError } from '../utils/ApiError.js';
+import { esAdmin } from '../utils/admins.js';
 import { verificarToken } from '../utils/token.js';
 
 /** Exige un token "Authorization: Bearer <jwt>" válido y deja el usuario en req.usuario. */
@@ -23,5 +24,13 @@ export async function requiereAuth(req, res, next) {
   }
 
   req.usuario = usuario;
+  next();
+}
+
+/** Solo para las cuentas de ADMINS (panel de moderación). Va después de requiereAuth. */
+export function requiereAdmin(req, res, next) {
+  if (!esAdmin(req.usuario)) {
+    throw ApiError.prohibido('Solo los administradores pueden entrar a moderación');
+  }
   next();
 }

@@ -10,6 +10,8 @@ import { copiarAlPortapapeles, enlaceVideo, rutaPerfil } from '../../utils/enlac
 import { formatearDuracion, formatearNumero } from '../../utils/formato'
 import IconoInsignia from '../insignias/IconoInsignia'
 import InsigniaChip from '../insignias/InsigniaChip'
+import ModalBloqueo from '../moderacion/ModalBloqueo'
+import ModalReporte from '../moderacion/ModalReporte'
 import Avatar from '../ui/Avatar'
 import BotonSeguir from '../ui/BotonSeguir'
 import Icono from '../ui/Icono'
@@ -41,6 +43,7 @@ export default function FeedVideo({
   onSeguirAutor,
   onAbrirComentarios,
   onEliminado,
+  onOcultar,
   onTerminado,
   repetir = true,
 }) {
@@ -60,6 +63,8 @@ export default function FeedVideo({
   const [corazones, setCorazones] = useState([])
   const [menuAbierto, setMenuAbierto] = useState(false)
   const [confirmando, setConfirmando] = useState(false)
+  const [reportando, setReportando] = useState(false)
+  const [bloqueando, setBloqueando] = useState(false)
   const [eliminando, setEliminando] = useState(false)
   const [descripcionCompleta, setDescripcionCompleta] = useState(false)
   // Se calcula una vez al montar: marca como "Nueva" la proyectada de las últimas 24 h.
@@ -313,6 +318,30 @@ export default function FeedVideo({
                         <Icono nombre="delete" className="text-xl" /> Eliminar proyectada
                       </button>
                     )}
+                    {!video.esMio && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMenuAbierto(false)
+                            setReportando(true)
+                          }}
+                          className={`${claseOpcionMenu} hover:text-error`}
+                        >
+                          <Icono nombre="flag" className="text-xl" /> Reportar proyectada
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMenuAbierto(false)
+                            setBloqueando(true)
+                          }}
+                          className={`${claseOpcionMenu} hover:text-error`}
+                        >
+                          <Icono nombre="block" className="text-xl" /> Bloquear a @{autor.username}
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
@@ -473,6 +502,22 @@ export default function FeedVideo({
         procesando={eliminando}
         onConfirmar={eliminar}
         onCancelar={() => setConfirmando(false)}
+      />
+      <ModalReporte
+        objetivo={reportando ? { tipo: 'video', id: video.id, titulo: 'Reportar proyectada' } : null}
+        onCerrar={() => setReportando(false)}
+        onReportado={() => {
+          setReportando(false)
+          onOcultar?.({ videoId: video.id })
+        }}
+      />
+      <ModalBloqueo
+        username={bloqueando ? autor.username : null}
+        onCerrar={() => setBloqueando(false)}
+        onBloqueado={() => {
+          setBloqueando(false)
+          onOcultar?.({ autorId: autor.id })
+        }}
       />
     </article>
   )

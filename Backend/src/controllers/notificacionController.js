@@ -2,6 +2,7 @@ import Notificacion from '../models/Notificacion.js';
 import { paginacion } from '../utils/entrada.js';
 import { actualizarInsignia, resumenInsignia } from '../utils/insignias.js';
 import { CAMPOS_AUTOR, usuarioPublico } from '../utils/serializar.js';
+import { contenidoOculto } from '../utils/visibilidad.js';
 
 // Con cuántas horas de anticipación se avisa que la racha está por vencer.
 const HORAS_AVISO_RACHA = 4;
@@ -24,8 +25,8 @@ const REQUISITOS = {
  */
 async function avisarRacha(usuario) {
   if (actualizarInsignia(usuario.insignia)) await usuario.save();
-  const { estado, venceEn, nivel } = resumenInsignia(usuario.insignia);
-  if (!venceEn || !nivel) return;
+  const { estado, venceEn, nivel } = resumenInsignia(usuario);
+  if (!venceEn || !nivel) return; // Sin racha, o con la insignia permanente de una cuenta administradora.
 
   let tipo = null;
   if (estado === 'apagada') tipo = 'racha_apagada';
@@ -66,8 +67,9 @@ export async function listarNotificaciones(req, res) {
   await avisarRacha(req.usuario);
   const { limite, salto } = paginacion(req.query, { porDefecto: 15, maximo: 50 });
 
+  const { autores } = await contenidoOculto(req.usuario._id);
   const [filas, noLeidas] = await Promise.all([
-    Notificacion.find({ destinatario: req.usuario._id })
+    Notificacion.find({ destinatario: req.usuario._id, actor: { $nin: autores } })
       .sort({ createdAt: -1, _id: -1 })
       .skip(salto)
       .limit(limite + 1)

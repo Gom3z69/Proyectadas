@@ -50,7 +50,7 @@ export default function Feed({ tipo }) {
     [tipo],
   )
 
-  const { items: videos, hayMas, cargando, error, cargarMas, actualizarItem, actualizarDonde, quitarItem } =
+  const { items: videos, hayMas, cargando, error, cargarMas, actualizarItem, actualizarDonde, quitarItem, quitarDonde } =
     useListaPaginada(cargarPagina)
 
   const [indiceVisible, setIndiceVisible] = useState(0)
@@ -187,6 +187,7 @@ export default function Feed({ tipo }) {
                   quitarItem(video.id)
                   actualizarUsuario({ insignia: respuesta.insignia })
                 }}
+                onOcultar={({ videoId, autorId }) => quitarDonde((v) => v.id === videoId || v.autor.id === autorId)}
                 repetir={!autoAvance}
                 onTerminado={() => irA(indice + 1)}
               />

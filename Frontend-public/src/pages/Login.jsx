@@ -7,7 +7,7 @@ import Spinner from '../components/ui/Spinner'
 import { useAuth } from '../hooks/useAuth'
 
 export default function Login() {
-  const { iniciarSesion } = useAuth()
+  const { iniciarSesion, avisoSesion, limpiarAviso } = useAuth()
   const [identificador, setIdentificador] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState(null)
@@ -40,6 +40,15 @@ export default function Login() {
       }
     >
       <form onSubmit={enviar} className="space-y-5">
+        {avisoSesion && (
+          <p role="status" className="flex items-start gap-2 rounded-2xl bg-secondary-container/20 px-4 py-3 text-body-sm text-on-surface">
+            <Icono nombre="info" className="text-lg text-secondary" />
+            <span className="flex-1">{avisoSesion}</span>
+            <button type="button" onClick={limpiarAviso} aria-label="Cerrar aviso" className="text-on-surface-variant hover:text-on-surface">
+              <Icono nombre="close" className="text-base" />
+            </button>
+          </p>
+        )}
         <CampoFormulario
           etiqueta="Usuario o correo"
           icono="person"
@@ -60,6 +69,11 @@ export default function Login() {
           autoComplete="current-password"
           required
         />
+        <div className="-mt-2 flex justify-end">
+          <Link to="/recuperar" className="font-label-md text-label-md text-primary hover:underline">
+            ¿Olvidaste tu contraseña?
+          </Link>
+        </div>
 
         {error && (
           <p role="alert" className="flex items-start gap-2 rounded-2xl bg-error-container/40 px-4 py-3 text-body-sm text-on-error-container">

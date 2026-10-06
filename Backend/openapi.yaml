@@ -6,16 +6,27 @@ info:
     API de PROYECTADAS: feed de videos verticales, likes, comentarios, seguidores e
     insignias por racha de publicación.
 
-    **Insignias** (de menor a mayor): Bronce (1 video), Plata (5), Oro (15), Diamante (30),
-    Rubí (50) y Gran Maestro (100). El progreso son los videos publicados en la racha actual.
+    **Insignias** (de menor a mayor): Bronce (1 video), Plata (10), Oro (50), Diamante (100),
+    Rubí (200) y Gran Maestro (500). El progreso son los videos publicados en la racha actual.
 
     **Racha:** hay que publicar al menos un video cada 24 h. Si no, la insignia se apaga y
     hay 24 h para revivirla (botón *Revivir* o publicando), lo que consume una oportunidad.
     Hay 3 oportunidades por mes y se reinician cada 1° de mes. Sin oportunidades, o si no se
     revive a tiempo, la insignia se pierde y el progreso vuelve a 0.
 
-    Todas las rutas, salvo registro, login, niveles y salud, requieren
+    **Cuentas administradoras** (variable `ADMINS`): entran al panel de moderación, no se pueden
+    suspender y tienen la insignia Gran Maestro permanente (`permanente: true`, siempre activa y sin
+    `venceEn`). Sus nombres de usuario no se pueden registrar.
+
+    Todas las rutas, salvo registro, login, recuperación de contraseña, niveles y salud, requieren
     `Authorization: Bearer <token>`.
+
+    **Límites anti-spam por cuenta:** 20 subidas por hora (incluye borradores) y 30 comentarios cada
+    10 minutos; responden 429. Los archivos se validan por su contenido (no por su extensión): un
+    archivo que no es realmente un video o una imagen responde 415.
+
+    **Archivos:** con Cloudinary configurado, `url`, `miniatura` y `avatar` son direcciones de
+    Cloudinary (https://res.cloudinary.com/...); si no, rutas del servidor (/uploads/...).
 servers:
   - url: http://localhost:4000/api
     description: Desarrollo local
@@ -26,6 +37,8 @@ tags:
   - name: Comentarios
   - name: Notificaciones
   - name: Insignias
+  - name: Cuenta
+  - name: Moderación
 
 security:
   - bearerAuth: []
@@ -51,6 +64,7 @@ paths:
     post:
       tags: [Auth]
       summary: Crea una cuenta
+      description: Responde 409 si el usuario o el correo ya existen, o si el nombre está reservado (incluye los de `ADMINS`).
       security: []
       requestBody:
         required: true
@@ -104,6 +118,54 @@ paths:
                   usuario: { $ref: '#/components/schemas/UsuarioPrivado' }
         '401': { $ref: '#/components/responses/Error' }
 
+  /auth/recuperar:
+    post:
+      tags: [Cuenta]
+      summary: Envía al correo un enlace para restablecer la contraseña
+      description: |
+        Responde lo mismo exista o no el correo (no revela qué cuentas existen). El enlace vence en
+        1 hora y sirve una sola vez. Sin SMTP configurado, el correo se escribe en el log del backend.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        '200':
+          description: Solicitud recibida
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mensaje: { type: string }
+        '429': { $ref: '#/components/responses/Error' }
+
+  /auth/restablecer:
+    post:
+      tags: [Cuenta]
+      summary: Crea la contraseña nueva con el token del enlace
+      description: Cierra las sesiones abiertas antes del cambio y devuelve una sesión nueva.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, password]
+              properties:
+                token: { type: string, pattern: '^[a-f0-9]{64}$' }
+                password: { type: string, minLength: 6, maxLength: 72 }
+      responses:
+        '200': { $ref: '#/components/responses/Sesion' }
+        '400': { $ref: '#/components/responses/Error' }
+
   /usuarios/buscar:
     get:
       tags: [Usuarios]
@@ -123,6 +185,31 @@ paths:
                     items: { $ref: '#/components/schemas/UsuarioPublico' }
 
   /usuarios/yo:
+    delete:
+      tags: [Cuenta]
+      summary: Elimina mi cuenta y todo su contenido (pide la contraseña)
+      description: |
+        Borra proyectadas, borradores, comentarios (con sus respuestas), me gusta, favoritos,
+        seguidores, bloqueos, reportes y notificaciones, y corrige los contadores de otros videos.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password: { type: string }
+      responses:
+        '200':
+          description: Cuenta eliminada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  eliminada: { type: boolean }
+        '400': { $ref: '#/components/responses/Error' }
     patch:
       tags: [Usuarios]
       summary: Edita nombre, biografía y foto de perfil
@@ -153,6 +240,76 @@ paths:
                 properties:
                   usuario: { $ref: '#/components/schemas/UsuarioPrivado' }
         '400': { $ref: '#/components/responses/Error' }
+
+  /usuarios/yo/password:
+    patch:
+      tags: [Cuenta]
+      summary: Cambia la contraseña (pide la actual)
+      description: Cierra las sesiones de los demás dispositivos y devuelve una sesión nueva para este.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [actual, nueva]
+              properties:
+                actual: { type: string }
+                nueva: { type: string, minLength: 6, maxLength: 72 }
+      responses:
+        '200': { $ref: '#/components/responses/Sesion' }
+        '400': { $ref: '#/components/responses/Error' }
+
+  /usuarios/yo/correo:
+    patch:
+      tags: [Cuenta]
+      summary: Cambia el correo (pide la contraseña) y avisa a la dirección anterior
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        '200':
+          description: Correo actualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  usuario: { $ref: '#/components/schemas/UsuarioPrivado' }
+        '400': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /usuarios/yo/bloqueados:
+    get:
+      tags: [Usuarios]
+      summary: Cuentas que bloqueé
+      parameters:
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/Limite'
+      responses:
+        '200':
+          description: Página de cuentas bloqueadas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  usuarios:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: '#/components/schemas/UsuarioPublico'
+                        - type: object
+                          properties:
+                            bloqueadoEn: { type: string, format: date-time }
+                  hayMas: { type: boolean }
 
   /usuarios/yo/guardados:
     get:
@@ -285,6 +442,26 @@ paths:
         - $ref: '#/components/parameters/Username'
       responses:
         '200': { $ref: '#/components/responses/EstadoSeguimiento' }
+
+  /usuarios/{username}/bloquear:
+    post:
+      tags: [Usuarios]
+      summary: Bloquea la cuenta
+      description: |
+        Las dos cuentas dejan de verse (feed, perfil, comentarios, búsqueda y notificaciones), se
+        deshacen los seguimientos entre ellas y ninguna puede interactuar con la otra.
+      parameters:
+        - $ref: '#/components/parameters/Username'
+      responses:
+        '200': { $ref: '#/components/responses/EstadoBloqueo' }
+        '400': { $ref: '#/components/responses/Error' }
+    delete:
+      tags: [Usuarios]
+      summary: Desbloquea la cuenta (los seguimientos no regresan)
+      parameters:
+        - $ref: '#/components/parameters/Username'
+      responses:
+        '200': { $ref: '#/components/responses/EstadoBloqueo' }
 
   /videos/feed:
     get:
@@ -639,6 +816,141 @@ paths:
       responses:
         '200': { $ref: '#/components/responses/NoLeidas' }
 
+  /reportes:
+    post:
+      tags: [Moderación]
+      summary: Reporta una proyectada, un comentario o una cuenta
+      description: |
+        Quien reporta un video o un comentario deja de verlo al instante. Reportar dos veces lo mismo
+        responde 200 con `yaReportado`. No se puede reportar el contenido propio.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tipo, id, motivo]
+              properties:
+                tipo: { type: string, enum: [video, comentario, usuario] }
+                id: { type: string, description: Id del video, del comentario o de la cuenta }
+                motivo: { type: string, enum: [spam, acoso, odio, violencia, sexual, suplantacion, derechos, otro] }
+                detalle: { type: string, maxLength: 300 }
+      responses:
+        '201':
+          description: Reporte recibido
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reportado: { type: boolean }
+                  yaReportado: { type: boolean }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+
+  /moderacion/reportes:
+    get:
+      tags: [Moderación]
+      summary: Reportes agrupados por contenido (solo administradores, ver ADMINS)
+      description: Los pendientes salen del más reportado al menos reportado.
+      parameters:
+        - name: estado
+          in: query
+          schema: { type: string, enum: [pendiente, resuelto, descartado], default: pendiente }
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/Limite'
+      responses:
+        '200':
+          description: Grupos de reportes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  grupos:
+                    type: array
+                    items: { $ref: '#/components/schemas/GrupoReportes' }
+                  hayMas: { type: boolean }
+                  pendientes: { type: integer }
+        '403': { $ref: '#/components/responses/Error' }
+
+  /moderacion/reportes/{id}/resolver:
+    post:
+      tags: [Moderación]
+      summary: Elimina el contenido, suspende la cuenta o descarta los reportes
+      description: |
+        Se aplica a todos los reportes del mismo contenido. Suspender cierra también los reportes del
+        resto de su contenido. Al eliminar una proyectada, el progreso de su creador baja como si la
+        hubiera borrado. No se puede suspender a un administrador.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accion]
+              properties:
+                accion: { type: string, enum: [eliminar, suspender, descartar] }
+      responses:
+        '200':
+          description: Resuelto
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resuelto: { type: boolean }
+                  pendientes: { type: integer }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /moderacion/suspendidas:
+    get:
+      tags: [Moderación]
+      summary: Cuentas suspendidas
+      description: Una cuenta suspendida no puede iniciar sesión y su contenido queda oculto.
+      parameters:
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/Limite'
+      responses:
+        '200':
+          description: Página de cuentas suspendidas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  usuarios:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: '#/components/schemas/UsuarioPublico'
+                        - type: object
+                          properties:
+                            suspendidaEn: { type: string, format: date-time }
+                  hayMas: { type: boolean }
+
+  /moderacion/usuarios/{id}/reactivar:
+    post:
+      tags: [Moderación]
+      summary: Quita la suspensión de una cuenta
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Reactivada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reactivada: { type: boolean }
+        '404': { $ref: '#/components/responses/Error' }
+
   /insignias/niveles:
     get:
       tags: [Insignias]
@@ -686,6 +998,7 @@ paths:
     post:
       tags: [Insignias]
       summary: Revive mi insignia apagada (consume una oportunidad)
+      description: Responde 409 si no está apagada, si no quedan oportunidades o si la cuenta es administradora (su insignia es permanente).
       responses:
         '200':
           description: Insignia encendida de nuevo
@@ -799,6 +1112,14 @@ components:
             properties:
               siguiendo: { type: boolean }
               seguidores: { type: integer }
+    EstadoBloqueo:
+      description: Estado del bloqueo
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              bloqueado: { type: boolean }
     EstadoLike:
       description: Estado del me gusta
       content:
@@ -839,19 +1160,19 @@ components:
     Insignia:
       type: object
       properties:
-        nivel: { type: string, nullable: true, example: oro }
-        nombre: { type: string, nullable: true, example: Oro }
+        nivel: { type: string, nullable: true, example: plata }
+        nombre: { type: string, nullable: true, example: Plata }
         estado: { type: string, enum: [sin_insignia, activa, apagada] }
         progreso: { type: integer, example: 17, description: Videos en la racha actual }
         siguiente:
           type: object
           nullable: true
           properties:
-            clave: { type: string, example: diamante }
-            nombre: { type: string, example: Diamante }
-            minimo: { type: integer, example: 30 }
-            faltan: { type: integer, example: 13 }
-        porcentajeSiguiente: { type: integer, example: 13 }
+            clave: { type: string, example: oro }
+            nombre: { type: string, example: Oro }
+            minimo: { type: integer, example: 50 }
+            faltan: { type: integer, example: 33 }
+        porcentajeSiguiente: { type: integer, example: 17 }
         venceEn:
           type: string
           format: date-time
@@ -867,6 +1188,9 @@ components:
             nivel: { type: string, nullable: true }
             progreso: { type: integer }
             fecha: { type: string, format: date-time }
+        permanente:
+          type: boolean
+          description: Cuenta administradora. Siempre Gran Maestro y activa, sin venceEn ni vidas que gastar.
 
     UsuarioPublico:
       type: object
@@ -874,7 +1198,7 @@ components:
         id: { type: string }
         nombre: { type: string }
         username: { type: string }
-        avatar: { type: string, example: /uploads/avatares/1730000000000-ab12.jpg }
+        avatar: { type: string, example: /uploads/avatares/1730000000000-ab12.jpg, description: Ruta /uploads/... o URL de Cloudinary }
         insignia: { $ref: '#/components/schemas/InsigniaCorta' }
 
     UsuarioPrivado:
@@ -888,6 +1212,7 @@ components:
         avatar: { type: string }
         creadoEn: { type: string, format: date-time }
         insignia: { $ref: '#/components/schemas/Insignia' }
+        esAdmin: { type: boolean, description: Cuenta administradora (panel de moderación e insignia permanente) }
 
     Perfil:
       type: object
@@ -916,6 +1241,49 @@ components:
             miniatura: { type: string }
         siguiendo: { type: boolean }
         esPropio: { type: boolean }
+        bloqueadoPorMi: { type: boolean, description: La persona bloqueó esta cuenta (solo puede desbloquearla) }
+
+    GrupoReportes:
+      type: object
+      description: Todos los reportes de un mismo contenido
+      properties:
+        id: { type: string, description: Id de un reporte del grupo (para resolverlo) }
+        tipo: { type: string, enum: [video, comentario, usuario] }
+        total: { type: integer }
+        motivos:
+          type: object
+          additionalProperties: { type: integer }
+          example: { spam: 2, acoso: 1 }
+        detalles:
+          type: array
+          items: { type: string }
+        ultimo: { type: string, format: date-time }
+        video:
+          type: object
+          nullable: true
+          properties:
+            id: { type: string }
+            url: { type: string }
+            miniatura: { type: string }
+            descripcion: { type: string }
+        comentario:
+          type: object
+          nullable: true
+          properties:
+            id: { type: string }
+            texto: { type: string }
+        usuario:
+          allOf:
+            - $ref: '#/components/schemas/UsuarioPublico'
+            - type: object
+              properties:
+                suspendida: { type: boolean }
+        resolucion:
+          type: object
+          nullable: true
+          properties:
+            accion: { type: string, example: eliminar }
+            fecha: { type: string, format: date-time }
 
     CambiosBorrador:
       type: object
@@ -928,7 +1296,7 @@ components:
       properties:
         id: { type: string }
         estado: { type: string, enum: [publicada, borrador] }
-        url: { type: string, example: /uploads/videos/1730000000000-ab12.mp4 }
+        url: { type: string, example: /uploads/videos/1730000000000-ab12.mp4, description: Ruta /uploads/... o URL de Cloudinary }
         miniatura: { type: string }
         descripcion: { type: string }
         hashtags:

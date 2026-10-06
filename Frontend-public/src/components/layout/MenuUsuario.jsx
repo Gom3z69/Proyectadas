@@ -59,6 +59,14 @@ export default function MenuUsuario() {
           <Link to="/mis-proyectadas" role="menuitem" className={claseOpcion} onClick={() => setAbierto(false)}>
             <Icono nombre="video_library" className="text-xl" /> Mis proyectadas
           </Link>
+          {usuario.esAdmin && (
+            <Link to="/moderacion" role="menuitem" className={claseOpcion} onClick={() => setAbierto(false)}>
+              <Icono nombre="shield_person" className="text-xl" /> Moderación
+            </Link>
+          )}
+          <Link to="/configuracion" role="menuitem" className={claseOpcion} onClick={() => setAbierto(false)}>
+            <Icono nombre="settings" className="text-xl" /> Configuración
+          </Link>
           <Link to="/soporte" role="menuitem" className={claseOpcion} onClick={() => setAbierto(false)}>
             <Icono nombre="help" className="text-xl" /> Ayuda y soporte
           </Link>

@@ -25,6 +25,23 @@ export const buscarUsuarios = (texto, senal) =>
 export const actualizarPerfil = (datos) =>
   peticion('/usuarios/yo', datos instanceof FormData ? { metodo: 'PATCH', formulario: datos } : { metodo: 'PATCH', datos })
 
+/** Devuelve una sesión nueva: las de los demás dispositivos se cierran. */
+export const cambiarPassword = (actual, nueva) =>
+  peticion('/usuarios/yo/password', { metodo: 'PATCH', datos: { actual, nueva } })
+
+export const cambiarCorreo = (email, password) =>
+  peticion('/usuarios/yo/correo', { metodo: 'PATCH', datos: { email, password } })
+
+/** Elimina la cuenta con todo su contenido. */
+export const eliminarCuenta = (password) => peticion('/usuarios/yo', { metodo: 'DELETE', datos: { password } })
+
+/** Bloquear oculta a ambas cuentas entre sí y deshace los seguimientos. */
+export const bloquear = (username) => peticion(`${ruta(username)}/bloquear`, { metodo: 'POST' })
+
+export const desbloquear = (username) => peticion(`${ruta(username)}/bloquear`, { metodo: 'DELETE' })
+
+export const listarBloqueados = (pagina = 1) => peticion(`/usuarios/yo/bloqueados?pagina=${pagina}`)
+
 export const seguir = (username) => peticion(`${ruta(username)}/seguir`, { metodo: 'POST' })
 
 export const dejarDeSeguir = (username) => peticion(`${ruta(username)}/seguir`, { metodo: 'DELETE' })

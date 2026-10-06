@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import config from '../../Config.js';
 import Usuario, { CUENTA_SUSPENDIDA } from '../models/Usuario.js';
 import { ApiError } from '../utils/ApiError.js';
+import { esAdmin } from '../utils/admins.js';
 import { correoRecuperacion, enviarCorreo } from '../utils/correo.js';
 import { leerPassword, texto, validarPassword } from '../utils/entrada.js';
 import { actualizarInsignia } from '../utils/insignias.js';
@@ -21,7 +22,8 @@ export async function registrar(req, res) {
   const password = leerPassword(req.body?.password);
 
   validarPassword(password);
-  if (USUARIOS_RESERVADOS.has(username)) {
+  // Tampoco los de ADMINS: si una cuenta administradora se elimina, nadie más puede tomar su nombre y sus permisos.
+  if (USUARIOS_RESERVADOS.has(username) || esAdmin({ username })) {
     throw ApiError.conflicto('Ese nombre de usuario no está disponible');
   }
 

@@ -1,6 +1,7 @@
 import config from '../../Config.js';
 import { NIVELES_INSIGNIA, REGLAS_RACHA } from '../Configs/insignias.js';
 import { ApiError } from './ApiError.js';
+import { esAdmin } from './admins.js';
 
 /*
  * Reglas de la racha:
@@ -11,6 +12,8 @@ import { ApiError } from './ApiError.js';
  *     consume una oportunidad (3 → 2 → 1 → 0).
  *   - Si se apaga sin oportunidades, o no se revive a tiempo, se pierde y el progreso vuelve a 0.
  *   - Las oportunidades se reinician cada 1° de mes (zona horaria APP_TIMEZONE).
+ *   - Las cuentas administradoras (ADMINS) tienen el nivel más alto de forma permanente: se muestra
+ *     siempre encendido y sin plazos. Su racha real se sigue registrando, pero no cambia lo que se ve.
  *
  * El estado se evalúa al leerlo: actualizarInsignia() aplica en orden cronológico las
  * transiciones pendientes, así el resultado es el mismo aunque nadie consulte el perfil
@@ -43,6 +46,20 @@ function primerDiaMesSiguiente(mes) {
 }
 
 const sumarMs = (fecha, ms) => new Date(new Date(fecha).getTime() + ms);
+
+const NIVEL_MAXIMO = NIVELES_INSIGNIA.at(-1);
+
+// Cómo se ve la insignia de una cuenta administradora: el nivel más alto, encendido y sin plazos.
+const INSIGNIA_PERMANENTE = {
+  nivel: NIVEL_MAXIMO.clave,
+  nombre: NIVEL_MAXIMO.nombre,
+  estado: 'activa',
+  siguiente: null,
+  porcentajeSiguiente: 100,
+  venceEn: null,
+  ultimaPerdida: null,
+  permanente: true,
+};
 
 export function nivelPorProgreso(progreso) {
   let nivel = null;
@@ -172,8 +189,12 @@ export function registrarEliminacion(ins, fechaVideo, ahora = new Date()) {
   }
 }
 
-/** Estado completo para el perfil (línea de tiempo, plazos y oportunidades). */
-export function resumenInsignia(ins) {
+/**
+ * Estado completo de la insignia de un usuario para el perfil (línea de tiempo, plazos y oportunidades).
+ * `permanente` marca la de una cuenta administradora, que no depende de la racha.
+ */
+export function resumenInsignia(usuario) {
+  const ins = usuario.insignia;
   const nivel = nivelPorProgreso(ins.progreso);
   const siguiente = siguienteNivel(ins.progreso);
   const base = nivel?.minimo ?? 0;
@@ -186,7 +207,7 @@ export function resumenInsignia(ins) {
     venceEn = sumarMs(ins.apagadaEn, PLAZO_REVIVIR_MS);
   }
 
-  return {
+  const resumen = {
     nivel: nivel?.clave ?? null,
     nombre: nivel?.nombre ?? null,
     estado: ins.estado,
@@ -209,13 +230,23 @@ export function resumenInsignia(ins) {
           fecha: ins.ultimaPerdida.fecha,
         }
       : null,
+    permanente: false,
   };
+  return esAdmin(usuario) ? { ...resumen, ...INSIGNIA_PERMANENTE } : resumen;
 }
 
 /** Nivel y estado vigentes de otro usuario, calculados sin modificar su documento. */
-export function insigniaVisible(ins, ahora = new Date()) {
+export function insigniaVisible(usuario, ahora = new Date()) {
+  if (esAdmin(usuario)) return { nivel: INSIGNIA_PERMANENTE.nivel, estado: INSIGNIA_PERMANENTE.estado };
+  const ins = usuario.insignia;
   if (!ins) return { nivel: null, estado: 'sin_insignia' };
   const copia = typeof ins.toObject === 'function' ? ins.toObject() : { ...ins };
   actualizarInsignia(copia, ahora);
   return { nivel: nivelPorProgreso(copia.progreso)?.clave ?? null, estado: copia.estado };
+}
+
+/** Insignia que muestra una proyectada: la que tenía su autor al publicarla, o la permanente si es administrador. */
+export function nivelDeVideo(video) {
+  if (video.estado === 'publicada' && esAdmin(video.autor)) return INSIGNIA_PERMANENTE.nivel;
+  return video.nivelInsignia ?? null;
 }

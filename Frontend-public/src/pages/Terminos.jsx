@@ -39,7 +39,11 @@ export default function Terminos() {
           <li>Spam: publicaciones repetidas o vacías para inflar la racha, o comentarios masivos.</li>
           <li>Publicar datos personales de otras personas sin su permiso.</li>
         </ul>
-        <p>El contenido que incumpla estas reglas puede retirarse y la cuenta puede suspenderse.</p>
+        <p>
+          Puedes reportar proyectadas, comentarios y cuentas desde su menú. El equipo de moderación revisa los reportes: el
+          contenido que incumpla estas reglas puede retirarse y la cuenta puede suspenderse. También puedes bloquear a
+          cualquier cuenta para dejar de verla.
+        </p>
       </Seccion>
 
       <Seccion icono="forum" titulo="Comentarios">
@@ -64,6 +68,8 @@ export default function Terminos() {
           <li>
             Descripciones de hasta {MAX_DESCRIPCION} caracteres y comentarios de hasta {MAX_COMENTARIO}.
           </li>
+          <li>Para evitar el spam hay un límite de subidas por hora y de comentarios cada pocos minutos por cuenta.</li>
+          <li>Los archivos se revisan por su contenido: uno que no sea realmente un video o una imagen se rechaza.</li>
         </ul>
       </Seccion>
 

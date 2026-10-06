@@ -6,6 +6,7 @@ import { eliminarComentarioCompleto } from '../utils/eliminaciones.js';
 import { esObjectId, paginacion, texto } from '../utils/entrada.js';
 import { notificar, retirarNotificaciones } from '../utils/notificaciones.js';
 import { CAMPOS_AUTOR, serializarComentarios } from '../utils/serializar.js';
+import { autorOculto, contenidoOculto } from '../utils/visibilidad.js';
 
 const NO_EXISTE = 'Esta proyectada no existe o fue eliminada';
 const COMENTARIO_NO_EXISTE = 'El comentario no existe o fue eliminado';
@@ -16,11 +17,20 @@ const ORDENES = {
   votados: { likesCount: -1, createdAt: -1, _id: -1 },
 };
 
-/** Los comentarios solo existen en proyectadas publicadas (no en borradores). */
-async function videoPublicado(id, campos) {
-  const video = await Video.findOne({ _id: id, estado: 'publicada' }).select(campos).lean();
-  if (!video) throw ApiError.noEncontrado(NO_EXISTE);
+/**
+ * Los comentarios solo existen en proyectadas publicadas (no en borradores) que la persona
+ * puede ver: no de cuentas bloqueadas o suspendidas.
+ */
+async function videoPublicado(id, campos, usuario) {
+  const video = await Video.findOne({ _id: id, estado: 'publicada' }).select(`${campos} autor`).lean();
+  if (!video || (await autorOculto(usuario._id, video.autor))) throw ApiError.noEncontrado(NO_EXISTE);
   return video;
+}
+
+/** Filtro de comentarios visibles: sin autores bloqueados o suspendidos ni los que la persona reportó. */
+async function filtroVisibles(usuario) {
+  const oculto = await contenidoOculto(usuario._id);
+  return { autor: { $nin: oculto.autores }, _id: { $nin: oculto.comentarios } };
 }
 
 async function contarComentarios(videoId) {
@@ -30,11 +40,11 @@ async function contarComentarios(videoId) {
 
 /** Comentarios principales de una proyectada (las respuestas se piden por hilo). */
 export async function listarComentarios(req, res) {
-  const video = await videoPublicado(req.params.id, 'autor comentariosCount');
+  const video = await videoPublicado(req.params.id, 'comentariosCount', req.usuario);
   const { limite, salto } = paginacion(req.query, { porDefecto: 20, maximo: 50 });
   const orden = Object.hasOwn(ORDENES, req.query.orden) ? ORDENES[req.query.orden] : ORDENES.recientes;
 
-  const comentarios = await Comentario.find({ video: video._id, respuestaA: null })
+  const comentarios = await Comentario.find({ video: video._id, respuestaA: null, ...(await filtroVisibles(req.usuario)) })
     .sort(orden)
     .skip(salto)
     .limit(limite + 1)
@@ -55,10 +65,10 @@ export async function listarComentarios(req, res) {
 export async function listarRespuestas(req, res) {
   const raiz = await Comentario.findOne({ _id: req.params.id, respuestaA: null }).select('video').lean();
   if (!raiz) throw ApiError.noEncontrado(COMENTARIO_NO_EXISTE);
-  const video = await videoPublicado(raiz.video, 'autor');
+  const video = await videoPublicado(raiz.video, 'autor', req.usuario);
   const { limite, salto } = paginacion(req.query, { porDefecto: 10, maximo: 50 });
 
-  const respuestas = await Comentario.find({ respuestaA: raiz._id })
+  const respuestas = await Comentario.find({ respuestaA: raiz._id, ...(await filtroVisibles(req.usuario)) })
     .sort({ createdAt: 1, _id: 1 })
     .skip(salto)
     .limit(limite + 1)
@@ -78,7 +88,7 @@ export async function listarRespuestas(req, res) {
 export async function crearComentario(req, res) {
   const contenido = texto(req.body?.texto);
   if (!contenido) throw ApiError.solicitudInvalida('Escribe un comentario');
-  const video = await videoPublicado(req.params.id, 'autor');
+  const video = await videoPublicado(req.params.id, 'autor', req.usuario);
 
   // Responder a una respuesta la suma al mismo hilo: solo hay un nivel de respuestas.
   let raiz = null;
@@ -88,8 +98,18 @@ export async function crearComentario(req, res) {
     if (!esObjectId(respuestaA)) throw ApiError.solicitudInvalida('El comentario que quieres responder no es válido');
     destino = await Comentario.findOne({ _id: respuestaA, video: video._id }).select('respuestaA autor').lean();
     if (!destino) throw ApiError.noEncontrado('El comentario que quieres responder ya no existe');
+    if (await autorOculto(req.usuario._id, destino.autor)) throw ApiError.prohibido('No puedes responder a esta cuenta');
     raiz = destino.respuestaA ?? destino._id;
   }
+
+  // Anti-spam: el mismo texto en la misma proyectada dentro de 2 minutos se considera repetido.
+  const repetido = await Comentario.exists({
+    video: video._id,
+    autor: req.usuario._id,
+    texto: contenido,
+    createdAt: { $gt: new Date(Date.now() - 2 * 60 * 1000) },
+  });
+  if (repetido) throw new ApiError(429, 'Ya publicaste ese mismo comentario hace un momento');
 
   const comentario = await Comentario.create({
     video: video._id,
@@ -125,7 +145,9 @@ async function leerLikes(comentarioId) {
 /** Me gusta a un comentario o a una respuesta. Es idempotente. */
 export async function darLikeComentario(req, res) {
   const comentario = await Comentario.findById(req.params.id).select('video autor').lean();
-  if (!comentario) throw ApiError.noEncontrado(COMENTARIO_NO_EXISTE);
+  if (!comentario || (await autorOculto(req.usuario._id, comentario.autor))) {
+    throw ApiError.noEncontrado(COMENTARIO_NO_EXISTE);
+  }
 
   try {
     await ComentarioLike.create({ comentario: comentario._id, usuario: req.usuario._id, video: comentario.video });

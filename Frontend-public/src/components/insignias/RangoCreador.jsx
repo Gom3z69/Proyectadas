@@ -4,6 +4,7 @@ import Icono from '../ui/Icono'
 import IconoInsignia from './IconoInsignia'
 
 function chipRacha(insignia) {
+  if (insignia.permanente) return { color: 'text-primary', texto: 'Rango permanente · Administración' }
   if (insignia.estado === 'activa') {
     const cantidad = `${insignia.progreso} ${insignia.progreso === 1 ? 'proyectada' : 'proyectadas'}`
     return { color: 'text-tertiary', texto: `Racha activa: ${cantidad} en su racha` }

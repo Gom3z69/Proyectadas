@@ -21,7 +21,7 @@ import Notificacion from '../src/models/Notificacion.js';
 import Seguimiento from '../src/models/Seguimiento.js';
 import Usuario from '../src/models/Usuario.js';
 import Video from '../src/models/Video.js';
-import { borrarArchivoPublico } from '../src/utils/archivos.js';
+import { borrarArchivo, guardarArchivo } from '../src/utils/almacenamiento.js';
 import { extraerHashtags } from '../src/utils/entrada.js';
 import { actualizarInsignia, nivelPorProgreso, registrarPublicacion } from '../src/utils/insignias.js';
 
@@ -73,8 +73,8 @@ async function limpiarDemo() {
     }),
     Video.deleteMany({ _id: { $in: idsVideos } }),
   ]);
-  await Promise.all(videos.flatMap((v) => [borrarArchivoPublico(v.url), borrarArchivoPublico(v.miniatura)]));
-  await Promise.all(usuarios.map((u) => borrarArchivoPublico(u.avatar)));
+  await Promise.all(videos.flatMap((v) => [borrarArchivo(v.url), borrarArchivo(v.miniatura)]));
+  await Promise.all(usuarios.map((u) => borrarArchivo(u.avatar)));
   await Usuario.deleteMany({ _id: { $in: ids } });
   console.log(`Eliminados ${usuarios.length} usuarios demo y ${videos.length} videos.`);
 }
@@ -126,8 +126,11 @@ async function publicarVideosDemo(usuarios) {
     const autor = usuarios[indice % usuarios.length];
     const extension = path.extname(nombre).toLowerCase();
     const destino = `${Date.now()}-${crypto.randomBytes(8).toString('hex')}${extension}`;
-    await fs.copyFile(path.join(CARPETA_DEMO, nombre), path.join(CARPETAS.videos, destino));
-    const { size } = await fs.stat(path.join(CARPETAS.videos, destino));
+    const copia = path.join(CARPETAS.videos, destino);
+    await fs.copyFile(path.join(CARPETA_DEMO, nombre), copia);
+    const { size } = await fs.stat(copia);
+    // Con Cloudinary configurado, el video se sube a la nube (y se borra la copia local).
+    const url = await guardarArchivo({ path: copia, size }, 'videos');
 
     const descripcion = DESCRIPCIONES[indice % DESCRIPCIONES.length];
     const ahora = new Date();
@@ -136,7 +139,7 @@ async function publicarVideosDemo(usuarios) {
       autor: autor._id,
       descripcion,
       hashtags: extraerHashtags(descripcion),
-      url: `/uploads/videos/${destino}`,
+      url,
       tipo: EXTENSIONES[extension],
       tamano: size,
       estado: 'publicada',

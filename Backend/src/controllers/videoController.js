@@ -1,3 +1,4 @@
+import config from '../../Config.js';
 import { LIMITES_MB } from '../Configs/archivos.js';
 import { NIVELES_INSIGNIA } from '../Configs/insignias.js';
 import Guardado from '../models/Guardado.js';
@@ -6,7 +7,8 @@ import Seguimiento from '../models/Seguimiento.js';
 import Usuario from '../models/Usuario.js';
 import Video from '../models/Video.js';
 import { ApiError } from '../utils/ApiError.js';
-import { borrarArchivoPublico, rutaPublica } from '../utils/archivos.js';
+import { esAdmin } from '../utils/admins.js';
+import { borrarArchivo, guardarArchivo, guardarArchivos } from '../utils/almacenamiento.js';
 import { eliminarVideoCompleto } from '../utils/eliminaciones.js';
 import { extraerHashtags, paginacion, texto } from '../utils/entrada.js';
 import {
@@ -18,6 +20,7 @@ import {
 } from '../utils/insignias.js';
 import { notificar, retirarNotificaciones } from '../utils/notificaciones.js';
 import { CAMPOS_AUTOR, serializarVideos } from '../utils/serializar.js';
+import { autorOculto, contenidoOculto } from '../utils/visibilidad.js';
 
 const TIPOS_FEED = ['para-ti', 'siguiendo', 'elite'];
 const NO_EXISTE = 'Esta proyectada no existe o fue eliminada';
@@ -28,13 +31,22 @@ function fechaValida(valor) {
   return Number.isNaN(fecha.getTime()) ? null : fecha;
 }
 
-/** Autores con insignia Gran Maestro vigente (se actualiza su racha antes de filtrar). */
+/**
+ * Autores con insignia Gran Maestro vigente (se actualiza su racha antes de filtrar). Las cuentas
+ * administradoras siempre están: su insignia es permanente.
+ */
 async function autoresElite() {
   const minimo = NIVELES_INSIGNIA.at(-1).minimo;
-  const candidatos = await Usuario.find({ 'insignia.progreso': { $gte: minimo } });
+  const candidatos = await Usuario.find({
+    $or: [{ 'insignia.progreso': { $gte: minimo } }, { username: { $in: config.admins } }],
+  });
   const ahora = new Date();
   const elite = [];
   for (const usuario of candidatos) {
+    if (esAdmin(usuario)) {
+      elite.push(usuario._id);
+      continue;
+    }
     if (actualizarInsignia(usuario.insignia, ahora)) await usuario.save();
     if (usuario.insignia.progreso >= minimo) elite.push(usuario._id);
   }
@@ -80,11 +92,18 @@ export async function obtenerFeed(req, res) {
   // `desde` congela el feed al momento de la primera página para que la paginación no se desplace.
   const desde = fechaValida(req.query.desde) ?? new Date();
 
-  const filtro = { estado: 'publicada', publicadoEn: { $lte: desde } };
+  // Nunca aparecen cuentas bloqueadas o suspendidas ni lo que la persona reportó.
+  const oculto = await contenidoOculto(req.usuario._id);
+  const filtro = {
+    estado: 'publicada',
+    publicadoEn: { $lte: desde },
+    _id: { $nin: oculto.videos },
+    autor: { $nin: oculto.autores },
+  };
   if (tipo === 'siguiendo') {
-    filtro.autor = { $in: await Seguimiento.distinct('seguido', { seguidor: req.usuario._id }) };
+    filtro.autor.$in = await Seguimiento.distinct('seguido', { seguidor: req.usuario._id });
   } else if (tipo === 'elite') {
-    filtro.autor = { $in: await autoresElite() };
+    filtro.autor.$in = await autoresElite();
   }
 
   let videos;
@@ -118,6 +137,15 @@ async function serializarPropio(video, usuario) {
   return serializado;
 }
 
+/**
+ * Suma la publicación a la racha y devuelve qué avisar (nuevo nivel o insignia revivida).
+ * Una cuenta administradora ya tiene la insignia permanente: no hay nada que avisar.
+ */
+function sumarARacha(usuario, ahora) {
+  const evento = registrarPublicacion(usuario.insignia, ahora);
+  return esAdmin(usuario) ? { revivida: false, nuevoNivel: null } : evento;
+}
+
 /** Campos que se fijan al publicar: fecha e insignia alcanzada (la racha ya se actualizó). */
 function datosPublicacion(usuario, ahora) {
   return {
@@ -139,31 +167,44 @@ export async function publicarVideo(req, res) {
 
   const descripcion = texto(req.body?.descripcion);
   const duracion = Number(req.body?.duracion);
+  const [url, miniaturaUrl] = await guardarArchivos([
+    { archivo, carpeta: 'videos' },
+    { archivo: miniatura, carpeta: 'miniaturas' },
+  ]);
   const datos = {
     autor: req.usuario._id,
     descripcion,
     hashtags: extraerHashtags(descripcion),
-    url: rutaPublica(archivo),
-    miniatura: miniatura ? rutaPublica(miniatura) : '',
+    url,
+    miniatura: miniaturaUrl,
     duracion: Number.isFinite(duracion) && duracion > 0 ? Math.round(duracion * 10) / 10 : 0,
     tipo: archivo.mimetype,
     tamano: archivo.size,
   };
 
-  if (texto(req.body?.borrador) === 'true') {
-    const borrador = await Video.create({ ...datos, estado: 'borrador' });
-    return res.status(201).json({ video: await serializarPropio(borrador, req.usuario) });
+  const esBorrador = texto(req.body?.borrador) === 'true';
+  let video;
+  let evento = null;
+  try {
+    if (esBorrador) {
+      video = await Video.create({ ...datos, estado: 'borrador' });
+    } else {
+      // La racha se calcula primero en memoria: si guardar el video falla, el usuario no se modifica.
+      const ahora = new Date();
+      evento = sumarARacha(req.usuario, ahora);
+      video = await Video.create({ ...datos, ...datosPublicacion(req.usuario, ahora) });
+    }
+  } catch (error) {
+    // Si el video no se pudo crear, sus archivos no deben quedar huérfanos.
+    await Promise.all([borrarArchivo(url), borrarArchivo(miniaturaUrl)]);
+    throw error;
   }
-
-  // La racha se calcula primero en memoria: si guardar el video falla, el usuario no se modifica.
-  const ahora = new Date();
-  const evento = registrarPublicacion(req.usuario.insignia, ahora);
-  const video = await Video.create({ ...datos, ...datosPublicacion(req.usuario, ahora) });
+  if (esBorrador) return res.status(201).json({ video: await serializarPropio(video, req.usuario) });
   await req.usuario.save();
 
   res.status(201).json({
     video: await serializarPropio(video, req.usuario),
-    insignia: resumenInsignia(req.usuario.insignia),
+    insignia: resumenInsignia(req.usuario),
     evento,
   });
 }
@@ -179,13 +220,13 @@ async function borradorPropio(req) {
 }
 
 /** Descripción y portada nuevas que se enviaron al editar o publicar un borrador. */
-function leerCambios(req) {
+async function leerCambios(req) {
   const cambios = {};
   if (req.body?.descripcion !== undefined) {
     cambios.descripcion = texto(req.body.descripcion);
     cambios.hashtags = extraerHashtags(cambios.descripcion);
   }
-  if (req.file) cambios.miniatura = rutaPublica(req.file);
+  if (req.file) cambios.miniatura = await guardarArchivo(req.file, 'miniaturas');
   return cambios;
 }
 
@@ -194,42 +235,56 @@ function leerCambios(req) {
  * no lo publica (ni suma a la racha) dos veces.
  */
 async function actualizarBorrador(anterior, cambios) {
-  const video = await Video.findOneAndUpdate({ _id: anterior._id, estado: 'borrador' }, cambios, {
-    returnDocument: 'after',
-    runValidators: true,
-  }).lean();
-  if (!video) throw ApiError.conflicto(YA_PUBLICADA);
-  if (cambios.miniatura && anterior.miniatura) await borrarArchivoPublico(anterior.miniatura);
+  let video;
+  try {
+    video = await Video.findOneAndUpdate({ _id: anterior._id, estado: 'borrador' }, cambios, {
+      returnDocument: 'after',
+      runValidators: true,
+    }).lean();
+  } catch (error) {
+    await borrarArchivo(cambios.miniatura);
+    throw error;
+  }
+  if (!video) {
+    await borrarArchivo(cambios.miniatura);
+    throw ApiError.conflicto(YA_PUBLICADA);
+  }
+  if (cambios.miniatura && anterior.miniatura) await borrarArchivo(anterior.miniatura);
   return video;
 }
 
 export async function editarBorrador(req, res) {
   const borrador = await borradorPropio(req);
-  const video = await actualizarBorrador(borrador, leerCambios(req));
+  const video = await actualizarBorrador(borrador, await leerCambios(req));
   res.json({ video: await serializarPropio(video, req.usuario) });
 }
 
 /** Publica un borrador (con los últimos cambios enviados): suma 1 a la racha como cualquier publicación. */
 export async function publicarBorrador(req, res) {
   const borrador = await borradorPropio(req);
-  const cambios = leerCambios(req);
+  const cambios = await leerCambios(req);
 
   const ahora = new Date();
-  const evento = registrarPublicacion(req.usuario.insignia, ahora);
+  const evento = sumarARacha(req.usuario, ahora);
   const video = await actualizarBorrador(borrador, { ...cambios, ...datosPublicacion(req.usuario, ahora) });
   await req.usuario.save();
 
   res.json({
     video: await serializarPropio(video, req.usuario),
-    insignia: resumenInsignia(req.usuario.insignia),
+    insignia: resumenInsignia(req.usuario),
     evento,
   });
 }
 
 export async function obtenerVideo(req, res) {
   const video = await Video.findById(req.params.id).populate('autor', CAMPOS_AUTOR).lean();
-  // Un borrador solo lo puede ver su autor.
-  const visible = video?.estado === 'publicada' || Boolean(video?.autor?._id.equals(req.usuario._id));
+  const esMio = Boolean(video?.autor?._id.equals(req.usuario._id));
+  // Un borrador solo lo ve su autor; tampoco se ve lo de cuentas bloqueadas o suspendidas, ni lo reportado.
+  let visible = Boolean(video?.autor) && (esMio || video.estado === 'publicada');
+  if (visible && !esMio) {
+    const oculto = await contenidoOculto(req.usuario._id);
+    visible = ![...oculto.autores, ...oculto.videos].some((id) => id.equals(video.autor._id) || id.equals(video._id));
+  }
   const [serializado] = visible ? await serializarVideos([video], req.usuario) : [];
   if (!serializado) throw ApiError.noEncontrado(NO_EXISTE);
   res.json({ video: serializado });
@@ -249,7 +304,7 @@ export async function eliminarVideo(req, res) {
     await req.usuario.save();
   }
 
-  res.json({ eliminado: true, estado: video.estado, insignia: resumenInsignia(req.usuario.insignia) });
+  res.json({ eliminado: true, estado: video.estado, insignia: resumenInsignia(req.usuario) });
 }
 
 async function leerContador(videoId, campo) {
@@ -264,7 +319,7 @@ async function leerContador(videoId, campo) {
  */
 async function marcar(Modelo, campo, req, alMarcar) {
   const video = await Video.findOne({ _id: req.params.id, estado: 'publicada' }).select('autor').lean();
-  if (!video) throw ApiError.noEncontrado(NO_EXISTE);
+  if (!video || (await autorOculto(req.usuario._id, video.autor))) throw ApiError.noEncontrado(NO_EXISTE);
 
   try {
     await Modelo.create({ usuario: req.usuario._id, video: video._id });

@@ -24,6 +24,7 @@ const CONFIRMACIONES = {
  * - permitirEliminar: muestra "Eliminar" en las tarjetas (Mis Proyectadas).
  * - onEditarBorrador(video): al tocar un borrador (los borradores no se reproducen).
  * - onVideoEliminado(respuesta, id) / onSeguirAutor(autorId, resultado): avisan al contenedor.
+ * - onBloquearAutor(autorId): se bloqueó a un autor desde el reproductor.
  */
 export default function VideosPerfil({
   lista,
@@ -34,6 +35,7 @@ export default function VideosPerfil({
   onEditarBorrador,
   onVideoEliminado,
   onSeguirAutor,
+  onBloquearAutor,
 }) {
   const toast = useToast()
   const [indiceAbierto, setIndiceAbierto] = useState(null)
@@ -108,6 +110,11 @@ export default function VideosPerfil({
             onSeguirAutor?.(autorId, resultado)
           }}
           onEliminado={quitarDeLaLista}
+          onOcultar={({ videoId, autorId }) => {
+            lista.quitarDonde((video) => video.id === videoId || video.autor.id === autorId)
+            setIndiceAbierto(null)
+            if (autorId) onBloquearAutor?.(autorId)
+          }}
         />
       )}
 

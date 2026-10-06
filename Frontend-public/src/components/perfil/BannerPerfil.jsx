@@ -4,6 +4,7 @@ import { ESTILOS_INSIGNIA } from '../../utils/insignias'
 const ESTADOS_RACHA = {
   activa: { texto: 'Racha activa', punto: 'bg-tertiary shadow-[0_0_8px_#4edea3]' },
   apagada: { texto: 'Insignia apagada', punto: 'bg-error shadow-[0_0_8px_#ffb4ab]' },
+  permanente: { texto: 'Insignia permanente', punto: 'bg-primary shadow-[0_0_8px_#d0bcff]' },
 }
 
 function Fondo({ portada }) {
@@ -34,7 +35,7 @@ function Fondo({ portada }) {
 /** Banner cinematográfico del perfil de otra persona: su proyectada más popular como portada. */
 export default function BannerPerfil({ perfil }) {
   const { insignia } = perfil
-  const estadoRacha = ESTADOS_RACHA[insignia.estado]
+  const estadoRacha = ESTADOS_RACHA[insignia.permanente ? 'permanente' : insignia.estado]
   const estilo = ESTILOS_INSIGNIA[insignia.nivel]
 
   return (

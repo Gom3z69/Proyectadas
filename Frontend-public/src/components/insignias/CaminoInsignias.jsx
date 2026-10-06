@@ -5,6 +5,13 @@ import TrayectoriaRangos from './TrayectoriaRangos'
 function NivelActual({ insignia }) {
   const progreso = insignia.siguiente ? `${insignia.progreso}/${insignia.siguiente.minimo}` : `${insignia.progreso}`
 
+  if (insignia.permanente) {
+    return (
+      <Pildora punto="bg-primary" color="text-primary">
+        Nivel actual: {insignia.nombre} (permanente)
+      </Pildora>
+    )
+  }
   if (insignia.estado === 'apagada') {
     return (
       <Pildora punto="bg-error" color="text-error">
@@ -24,6 +31,17 @@ function NivelActual({ insignia }) {
       Sin insignia ({progreso})
     </Pildora>
   )
+}
+
+function descripcion({ insignia, esPropio, username }) {
+  if (insignia.permanente) {
+    return esPropio
+      ? `Como cuenta administradora, conservas el rango ${insignia.nombre} sin depender de la racha.`
+      : `@${username} es una cuenta administradora: conserva el rango ${insignia.nombre} sin depender de la racha.`
+  }
+  return esPropio
+    ? 'Tu rango sube con cada creación compartida. No dejes caer la racha.'
+    : `El rango de @${username} sube con cada proyectada que comparte.`
 }
 
 function Pildora({ punto, color, children }) {
@@ -49,11 +67,7 @@ export default function CaminoInsignias({ insignia, esPropio, username, onRevivi
             <h2 id="titulo-camino-insignias" className="font-headline-sm text-headline-sm font-bold text-on-surface">
               Camino de Insignias PROYECTADAS
             </h2>
-            <p className="font-body-sm text-body-sm text-on-surface-variant">
-              {esPropio
-                ? 'Tu rango sube con cada creación compartida. No dejes caer la racha.'
-                : `El rango de @${username} sube con cada proyectada que comparte.`}
-            </p>
+            <p className="font-body-sm text-body-sm text-on-surface-variant">{descripcion({ insignia, esPropio, username })}</p>
           </div>
         </div>
         <NivelActual insignia={insignia} />

@@ -1,5 +1,7 @@
+import { Suspense } from 'react'
 import { Link, Outlet } from 'react-router'
 import { useAuth } from '../../hooks/useAuth'
+import CargandoPagina from '../ui/CargandoPagina'
 import Logo from '../ui/Logo'
 import PantallaCarga from '../ui/PantallaCarga'
 import Resplandores from '../ui/Resplandores'
@@ -39,7 +41,9 @@ export default function LayoutInformativo() {
         </div>
       </header>
       <main className="w-full pt-20">
-        <Outlet />
+        <Suspense fallback={<CargandoPagina />}>
+          <Outlet />
+        </Suspense>
       </main>
       <Footer />
     </div>

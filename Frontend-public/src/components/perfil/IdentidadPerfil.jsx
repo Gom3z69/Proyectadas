@@ -22,8 +22,11 @@ function Estadistica({ valor, etiqueta, color, onClick }) {
   )
 }
 
-/** Tarjeta flotante con la identidad de otra persona: foto, nombre, rango, biografía, acciones y métricas. */
-export default function IdentidadPerfil({ perfil, onCambioSeguimiento, onVerRelaciones, onCompartir }) {
+/**
+ * Tarjeta flotante con la identidad de otra persona: foto, nombre, rango, biografía, acciones y métricas.
+ * `opciones` se muestra después del botón de compartir (el menú para reportar o bloquear).
+ */
+export default function IdentidadPerfil({ perfil, onCambioSeguimiento, onVerRelaciones, onCompartir, opciones }) {
   const { insignia, estadisticas } = perfil
   const estilo = ESTILOS_INSIGNIA[insignia.nivel]
   const apagada = insignia.estado === 'apagada'
@@ -84,6 +87,7 @@ export default function IdentidadPerfil({ perfil, onCambioSeguimiento, onVerRela
               >
                 <Icono nombre="share" className="text-lg" />
               </button>
+              {opciones}
             </div>
           </div>
         </div>

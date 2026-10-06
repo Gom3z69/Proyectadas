@@ -14,8 +14,9 @@ function ChipRacha({ insignia }) {
     activa: { punto: 'bg-tertiary', texto: `Racha activa · ${formatearRestante(restante)}` },
     apagada: { punto: 'bg-error', texto: `Insignia apagada · revívela en ${formatearRestante(restante)}` },
     sin_insignia: { punto: 'bg-outline', texto: 'Publica para ganar tu insignia' },
+    permanente: { punto: 'bg-primary', texto: 'Insignia permanente · Admin' },
   }
-  const estado = estados[insignia.estado] ?? estados.sin_insignia
+  const estado = estados[insignia.permanente ? 'permanente' : insignia.estado] ?? estados.sin_insignia
 
   return (
     <Link
