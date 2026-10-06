@@ -16,6 +16,18 @@ const lista = (valor) =>
     .map((item) => item.trim())
     .filter(Boolean);
 
+/**
+ * TRUST_PROXY: cuántos proxies hay delante del servidor (un número) o una lista de Express como "loopback".
+ * Sin definirla, solo se confía en el proxy local (el de Vite). Nunca true: cualquiera podría falsear su IP.
+ */
+function leerTrustProxy(valor) {
+  if (!valor) return 'loopback';
+  if (/^(true|false)$/i.test(valor)) {
+    throw new Error('TRUST_PROXY debe ser un número de proxies (por ejemplo 1) o una lista como "loopback", no true/false.');
+  }
+  return /^\d+$/.test(valor) ? Number(valor) : valor;
+}
+
 const corsOrigenes = lista(process.env.CORS_ORIGIN ?? 'http://localhost:5173');
 const smtpUsuario = process.env.SMTP_USER?.trim();
 
@@ -28,6 +40,8 @@ const config = {
     expiraEn: process.env.JWT_EXPIRES_IN ?? '7d',
   },
   corsOrigenes,
+  // Proxies delante del servidor, para leer la IP real de cada visitante (límites de solicitudes).
+  trustProxy: leerTrustProxy(process.env.TRUST_PROXY?.trim()),
   // Dirección del frontend, para los enlaces que se envían por correo.
   frontendUrl: (process.env.FRONTEND_URL ?? corsOrigenes[0] ?? 'http://localhost:5173').replace(/\/$/, ''),
   // Correo saliente (SMTP). Sin SMTP_HOST, los correos se escriben en el log (modo desarrollo).

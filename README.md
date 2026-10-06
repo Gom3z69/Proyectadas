@@ -96,10 +96,14 @@ Los umbrales y las reglas están en `Backend/src/Configs/insignias.js`; la lógi
   - `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`...: correo para recuperar la contraseña (sin SMTP, el enlace se escribe en
     `backend-local.log`).
   - `FRONTEND_URL`: dirección del frontend para los enlaces de los correos.
+  - `TRUST_PROXY`: cuántos proxies hay delante del servidor. En local, vacío; detrás de un hosting como Render, empieza
+    con `1`. Sin esto, todos los visitantes compartirían la IP del proxy y, con ella, los mismos límites de inicio de
+    sesión y registro. Nunca `true`: cualquiera podría falsear su IP.
   - `ADMINS`: nombres de usuario de las cuentas administradoras (panel de moderación, no se pueden suspender e
     insignia Gran Maestro permanente). Registra la cuenta antes de agregarla: los nombres de la lista ya no se pueden
     registrar, así nadie toma el nombre (y los permisos) de una cuenta administradora que se elimine.
-- **Frontend:** define `VITE_API_URL` con la URL del backend antes de `npm run build`. Opcional:
-  `VITE_CORREO_SOPORTE` con el correo que se muestra en la página de Soporte.
+- **Frontend:** define `VITE_API_URL` con la URL del backend (sin `/api`) antes de `npm run build`. Opcional:
+  `VITE_CORREO_SOPORTE` con el correo que se muestra en la página de Soporte. `Frontend-public/vercel.json` envía todas
+  las rutas a `index.html`: sin eso, en Vercel recargar `/perfil` o abrir un enlace compartido da 404.
 - Al arrancar, el backend actualiza los datos de versiones anteriores (por ejemplo, marca como publicados los videos
   que existían antes de los borradores).

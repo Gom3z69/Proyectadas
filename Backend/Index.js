@@ -1,10 +1,16 @@
 import config from './Config.js';
 import app from './App.js';
 import { conectarBaseDatos, desconectarBaseDatos } from './DataBase.js';
+import { enNube } from './src/utils/almacenamiento.js';
 import logger from './src/utils/logger.js';
 
 async function iniciar() {
   await conectarBaseDatos(config.mongoUri);
+  if (config.entorno === 'production' && !enNube) {
+    logger.warn(
+      'Producción sin CLOUDINARY_URL: los videos y las fotos se guardan en el disco del servidor, que en la mayoría de los hostings se borra al reiniciar o desplegar.',
+    );
+  }
 
   const servidor = app.listen(config.puerto, (error) => {
     if (error) {

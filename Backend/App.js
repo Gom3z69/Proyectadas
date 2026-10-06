@@ -12,8 +12,10 @@ asegurarCarpetas();
 
 const app = express();
 
-// Confía en X-Forwarded-For solo cuando viene de un proxy local (p. ej. el proxy de Vite).
-app.set('trust proxy', 'loopback');
+// Confía en X-Forwarded-For solo del proxy que corresponda (TRUST_PROXY): por defecto, el proxy local de Vite.
+// En un hosting hay que indicar cuántos proxies hay delante; si no, todos los visitantes compartirían la IP
+// del proxy y, con ella, los mismos límites de inicio de sesión y registro.
+app.set('trust proxy', config.trustProxy);
 
 app.use(
   helmet({
